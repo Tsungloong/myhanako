@@ -1,0 +1,38 @@
+# OS and editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs and local state
+*.log
+logs/
+tmp/
+temp/
+.env
+.env.*
+!.env.example
+
+# Node and frontend
+node_modules/
+dist/
+build/
+coverage/
+.turbo/
+.next/
+.vite/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# PiAgent local runtime state
+.piagent/
+PIAGENT_HOME/
