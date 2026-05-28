@@ -1,4 +1,4 @@
-# PiAgent 原生架构实施计划
+# myhanako PiAgent 原生架构实施计划
 
 本计划以 [design.md](design.md) 为唯一架构基准。早期报告和未审核讨论只作为历史背景，不进入任务拆解和实现依据。
 

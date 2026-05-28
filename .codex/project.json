@@ -1,0 +1,8 @@
+{
+  "name": "myhanako",
+  "workspace": "F:\\Codex-Workspace\\260527think1",
+  "designDocument": "docs/design.md",
+  "implementationPlan": "docs/implementation-plan.md",
+  "engineeringWorkflow": "docs/engineering-workflow.md",
+  "remote": "https://github.com/Tsungloong/myhanako.git"
+}
