@@ -84,7 +84,8 @@
   - 新增 `WorkspaceService`，所有文件读取先经过 workspace root 路径策略，产生 `file_snapshot_read`。
   - 新增 `PatchService` 与 `PatchModel`，以 full-file replacement 作为 P0 最小 patch 事实模型，产生 `file_patch_proposed`。
   - `WorkspaceService.commitPatch` 在写入前校验 base checksum，避免覆盖用户或外部进程的新改动，并产生 `file_write_committed`。
-  - 先稳定 core 事实链路；`DiffModel`、FileDiffCard 展示和 badlogic/pi-diff-review 式命令后续作为 UI/plugin/command 层扩展。
+  - `core/src/diff-service.ts` 新增 `DiffService.renderDiffModel`，把 `PatchModel` 渲染为 UI-neutral `DiffModel`，包含语言、checksum、hunks、old/new 行号和 context/delete/insert 行。
+  - 先稳定 core 事实链路；FileDiffCard 展示和 badlogic/pi-diff-review 式命令后续作为 UI/plugin/command 层扩展，不放进 P0 当前实现。
 
 ## 验证命令
 
@@ -97,12 +98,11 @@ git diff --check
 
 - 已推送远程分支：`feat/p0-event-log`
 - PR：https://github.com/Tsungloong/myhanako/pull/3
-- GitHub 连接器更新 PR metadata 仍返回 `Resource not accessible by integration`；当前 PR 描述更新通过提权后的本机 `gh` CLI 完成。
-- 已知问题：GitHub App / Codex GitHub 连接器对 `Tsungloong/myhanako` 缺少 Pull Requests write 权限，导致 PR metadata 写入 403；该问题暂时悬置，不阻塞后续核心开发。
+- GitHub 连接器写 PR metadata 仍返回 `Resource not accessible by integration`；当前判断为 GitHub metadata scope 只读限制，`Pull requests: Read and write` 已确认勾选。该问题标注为悬置，等项目落地后统一处理；当前 PR 描述更新通过提权后的本机 `gh` CLI 完成。
 
 ## 下一步
 
-- 继续 P0/M5：补 `DiffService.renderDiffModel` 或进入 `TerminalService` 事件化；memory 后续按产品需要补来源事件读取投影、压缩和冲突处理。
+- 继续 P0/M5：将 `DiffModel` 接入后续 API/UI 投影或进入 `TerminalService` 事件化；memory 后续按产品需要补来源事件读取投影、压缩和冲突处理。
 
 ## 参考标注
 

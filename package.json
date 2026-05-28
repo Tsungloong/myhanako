@@ -5,7 +5,7 @@
   "type": "module",
   "description": "PiAgent-native architecture experiments for myhanako.",
   "scripts": {
-    "test": "node --test shared/test/session-events.test.ts shared/test/prompt-bundle.test.ts shared/test/model-ref.test.ts core/test/session-event-log.test.ts core/test/prompt-assembler.test.ts core/test/memory-service.test.ts core/test/memory-compiler.test.ts core/test/workspace-service.test.ts core/test/model-manager.test.ts core/test/tool-registry.test.ts core/test/resource-access-service.test.ts core/test/execution-boundary.test.ts core/test/command-registry.test.ts core/test/plugin-manager.test.ts core/test/skill-manager.test.ts",
+    "test": "node --test shared/test/session-events.test.ts shared/test/prompt-bundle.test.ts shared/test/model-ref.test.ts core/test/session-event-log.test.ts core/test/prompt-assembler.test.ts core/test/memory-service.test.ts core/test/memory-compiler.test.ts core/test/workspace-service.test.ts core/test/diff-service.test.ts core/test/model-manager.test.ts core/test/tool-registry.test.ts core/test/resource-access-service.test.ts core/test/execution-boundary.test.ts core/test/command-registry.test.ts core/test/plugin-manager.test.ts core/test/skill-manager.test.ts",
     "test:events": "node --test shared/test/session-events.test.ts core/test/session-event-log.test.ts",
     "check": "npm test"
   },
