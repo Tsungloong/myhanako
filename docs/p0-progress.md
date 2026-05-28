@@ -14,7 +14,7 @@
 
 - `shared/src/session-events.ts`
   - 定义 P0 `SessionEvent` 类型、事件类型集合和 payload contract。
-  - 包含 prompt、memory、tool、file、terminal、interrupt、recall、recovery 等事件。
+  - 包含 prompt、memory、tool、file、terminal、plugin、interrupt、recall、recovery 等事件。
 - `shared/src/session-projection.ts`
   - 从 append-only event log 投影基础 transcript。
   - `message_recalled` 只标记投影状态，不删除历史事件。
@@ -55,6 +55,7 @@
   - restricted plugin 只允许静态 tools/commands 贡献；routes/providers/extensions/runtime 保留给 full-access metadata，不在 P0 执行 extension code。
   - plugin 贡献通过 `ToolRegistry` / `CommandRegistry` 注册，禁用 plugin 时按 source/sourceId 卸载贡献。
   - 支持本地 plugin manifest 发现/加载：扫描 plugin 根目录或集合目录下的 `plugin.json` / `.codex-plugin/plugin.json`，只加载 manifest metadata，不执行 runtime 或 extension code。
+  - 在提供 audit context 时写入 `plugin_loaded`、`plugin_disabled` 和 `plugin_load_failed`，保持 plugin 行为可回放、可审计。
 - `core/src/skill-manager.ts`
   - 实现 P0 最小 skill metadata/binding/prompt context 编排，skill 只提供行为模式和 prompt layer，不隐式暴露 `/xxx` command。
   - 支持 built-in/project/user/plugin 来源、session/project/mode/global 绑定、priority 排序、enabled/disabled 状态和 prompt 级 conflict 剔除。
@@ -72,10 +73,11 @@ git diff --check
 - 已推送远程分支：`feat/p0-event-log`
 - PR：https://github.com/Tsungloong/myhanako/pull/3
 - GitHub 连接器更新 PR metadata 仍返回 `Resource not accessible by integration`；当前 PR 描述更新通过提权后的本机 `gh` CLI 完成。
+- 已知问题：GitHub App / Codex GitHub 连接器对 `Tsungloong/myhanako` 缺少 Pull Requests write 权限，导致 PR metadata 写入 403；该问题暂时悬置，不阻塞后续核心开发。
 
 ## 下一步
 
-- 继续 P0/M3 收口：补 plugin 行为事件记录或 service facade 预留；随后进入 P0 memory 最小闭环或 server API/WebSocket 骨架。
+- 继续 P0/M3 收口：补 service facade 预留；随后进入 P0 memory 最小闭环或 server API/WebSocket 骨架。
 
 ## 参考标注
 

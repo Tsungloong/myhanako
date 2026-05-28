@@ -27,6 +27,9 @@ export const SESSION_EVENT_TYPES = [
   "memory_compiled",
   "memory_injected",
   "command_invoked",
+  "plugin_loaded",
+  "plugin_disabled",
+  "plugin_load_failed",
   "prompt_draft_created",
   "assistant_interrupted",
   "message_recalled",
@@ -188,6 +191,25 @@ export type SessionEventPayloadMap = {
     readonly commandId: string
     readonly rawInput: string
     readonly arguments?: JsonObject
+  }
+  plugin_loaded: {
+    readonly pluginId: string
+    readonly name: string
+    readonly version: string
+    readonly access: "restricted" | "full-access"
+    readonly permissions: readonly string[]
+    readonly routes?: readonly string[]
+    readonly providers?: readonly string[]
+    readonly extensions?: readonly string[]
+  }
+  plugin_disabled: {
+    readonly pluginId: string
+    readonly unregisteredToolCount: number
+    readonly unregisteredCommandCount: number
+  }
+  plugin_load_failed: {
+    readonly pluginId: string
+    readonly reason: string
   }
   prompt_draft_created: {
     readonly draftId: string

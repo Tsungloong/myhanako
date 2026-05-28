@@ -24,7 +24,7 @@
 
 ## 开发状态
 
-当前阶段已推进到 P0/M3 ToolRegistry、CommandRegistry、PluginManager 与 SkillManager 起步。已有 shared event contract、append-only `SessionEventLog`、PromptBundle 契约、PromptAssembler 层装配、prompt/memory/tools/model 请求事件写入、Hanako-style 模型复合引用、模型角色映射、provider credentials 解析、provider-neutral 请求快照、工具注册边界测试、slash command 注册/调用边界测试、plugin manifest/contribution 边界测试、本地 plugin manifest 发现/加载边界测试和 skill prompt context 边界测试。
+当前阶段已推进到 P0/M3 ToolRegistry、CommandRegistry、PluginManager 与 SkillManager 起步。已有 shared event contract、append-only `SessionEventLog`、PromptBundle 契约、PromptAssembler 层装配、prompt/memory/tools/model 请求事件写入、Hanako-style 模型复合引用、模型角色映射、provider credentials 解析、provider-neutral 请求快照、工具注册边界测试、slash command 注册/调用边界测试、plugin manifest/contribution 边界测试、本地 plugin manifest 发现/加载边界测试、plugin audit event 边界测试和 skill prompt context 边界测试。
 
 本地验证命令：
 

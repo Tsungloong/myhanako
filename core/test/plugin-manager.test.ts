@@ -5,6 +5,10 @@ import { join } from "node:path"
 import test from "node:test"
 import { CommandRegistry } from "../src/command-registry.ts"
 import { PluginManager } from "../src/plugin-manager.ts"
+import {
+  InMemorySessionEventStore,
+  SessionEventLog
+} from "../src/session-event-log.ts"
 import { ToolRegistry } from "../src/tool-registry.ts"
 
 test("PluginManager registers restricted plugin tools and commands through registries", async () => {
@@ -151,6 +155,130 @@ test("PluginManager disables a plugin and unregisters its contributions", () => 
   assert.equal(commandRegistry.lookup("temporary-echo"), null)
   assert.equal(manager.listPlugins()[0].status, "disabled")
 })
+
+test("PluginManager records plugin load and disable events when audit context is supplied", async () => {
+  const eventLog = new SessionEventLog({
+    store: new InMemorySessionEventStore(),
+    clock: () => new Date("2026-05-28T00:00:00.000Z"),
+    idFactory: (event) => `evt_${event.sequence}`
+  })
+  const toolRegistry = new ToolRegistry()
+  const commandRegistry = new CommandRegistry()
+  const manager = new PluginManager({ toolRegistry, commandRegistry })
+  const audit = {
+    sessionId: "session_plugins",
+    eventLog,
+    correlationId: "corr_plugin_boot"
+  }
+
+  await manager.loadPlugin(
+    {
+      manifest: {
+        id: "plugin:workspace",
+        name: "Workspace helpers",
+        version: "0.1.0",
+        access: "restricted",
+        permissions: ["workspace:read", "tool:register", "command:register"]
+      },
+      tools: [
+        {
+          id: "workspace.read",
+          name: "workspace_read",
+          description: "Read workspace metadata.",
+          schemaChecksum: "sha256:workspace-read",
+          permissions: ["workspace:read"],
+          execute: async () => ({ ok: true })
+        }
+      ],
+      commands: [
+        {
+          id: "workspace.status",
+          name: "workspace-status",
+          description: "Show workspace plugin status.",
+          execute: async () => ({ ok: true })
+        }
+      ]
+    },
+    audit
+  )
+
+  assert.equal(await manager.disablePlugin("plugin:workspace", audit), true)
+
+  const events = await eventLog.listSessionEvents("session_plugins")
+  assert.deepEqual(events.map((event) => event.type), [
+    "plugin_loaded",
+    "plugin_disabled"
+  ])
+  assert.equal(events[0].actor, "system")
+  assert.equal(events[0].correlationId, "corr_plugin_boot")
+  assert.deepEqual(events[0].payload, {
+    pluginId: "plugin:workspace",
+    name: "Workspace helpers",
+    version: "0.1.0",
+    access: "restricted",
+    permissions: ["workspace:read", "tool:register", "command:register"]
+  })
+  assert.deepEqual(events[1].payload, {
+    pluginId: "plugin:workspace",
+    unregisteredToolCount: 1,
+    unregisteredCommandCount: 1
+  })
+})
+
+test("PluginManager records plugin load failures without keeping partial contributions", async () => {
+  const eventLog = new SessionEventLog({
+    store: new InMemorySessionEventStore(),
+    clock: () => new Date("2026-05-28T00:00:00.000Z"),
+    idFactory: (event) => `evt_${event.sequence}`
+  })
+  const toolRegistry = new ToolRegistry()
+  const manager = new PluginManager({
+    toolRegistry,
+    commandRegistry: new CommandRegistry()
+  })
+
+  await assert.rejects(
+    async () =>
+      manager.loadPlugin(
+        {
+          manifest: {
+            id: "plugin:unsafe",
+            name: "Unsafe plugin",
+            version: "0.1.0",
+            access: "restricted",
+            permissions: ["tool:register"],
+            extensions: ["extensions/native"]
+          },
+          tools: [
+            {
+              id: "unsafe.echo",
+              name: "unsafe_echo",
+              description: "Echo.",
+              schemaChecksum: "sha256:unsafe-echo",
+              permissions: [],
+              execute: async () => ({ ok: true })
+            }
+          ]
+        },
+        {
+          sessionId: "session_plugins",
+          eventLog
+        }
+      ),
+    /Restricted plugin cannot declare full-access capabilities: plugin:unsafe/
+  )
+
+  assert.deepEqual(manager.listPlugins(), [])
+  assert.deepEqual(toolRegistry.listDefinitions(), [])
+
+  const events = await eventLog.listSessionEvents("session_plugins")
+  assert.deepEqual(events.map((event) => event.type), ["plugin_load_failed"])
+  assert.deepEqual(events[0].payload, {
+    pluginId: "plugin:unsafe",
+    reason: "Restricted plugin cannot declare full-access capabilities: plugin:unsafe"
+  })
+})
+
 test("PluginManager rolls back registry contributions when plugin loading fails", () => {
   const toolRegistry = new ToolRegistry()
   const commandRegistry = new CommandRegistry()

@@ -1,5 +1,6 @@
 import { readdir, readFile, stat } from "node:fs/promises"
 import { join, resolve } from "node:path"
+import type { SessionEventLog } from "./session-event-log.ts"
 import {
   CommandRegistry,
   type CommandRegistration
@@ -49,6 +50,13 @@ export type PluginLoadInput = {
   readonly commands?: readonly PluginCommandContribution[]
 }
 
+export type PluginAuditContext = {
+  readonly sessionId: string
+  readonly eventLog: SessionEventLog
+  readonly correlationId?: string
+  readonly parentEventId?: string
+}
+
 export type LocalPluginManifest = {
   readonly rootDir: string
   readonly manifestPath: string
@@ -63,6 +71,12 @@ export type PluginManagerOptions = {
 type LoadedPlugin = {
   readonly manifest: PluginManifest
   status: PluginStatus
+}
+
+type PluginDisableResult = {
+  readonly disabled: boolean
+  readonly unregisteredToolCount: number
+  readonly unregisteredCommandCount: number
 }
 
 const FULL_ACCESS_ONLY_FIELDS = ["routes", "providers", "extensions", "runtime"] as const
@@ -96,7 +110,36 @@ export class PluginManager {
     return discoveredPlugins.map((plugin) => this.loadPlugin({ manifest: plugin.manifest }))
   }
 
-  loadPlugin(input: PluginLoadInput): PluginSnapshot {
+  loadPlugin(input: PluginLoadInput): PluginSnapshot
+  loadPlugin(input: PluginLoadInput, audit: PluginAuditContext): Promise<PluginSnapshot>
+  loadPlugin(
+    input: PluginLoadInput,
+    audit?: PluginAuditContext
+  ): PluginSnapshot | Promise<PluginSnapshot> {
+    if (!audit) {
+      return this.#loadPluginSync(input)
+    }
+
+    return this.#loadPluginWithAudit(input, audit)
+  }
+
+  listPlugins(): readonly PluginSnapshot[] {
+    return Array.from(this.#plugins.values())
+      .map(toPluginSnapshot)
+      .sort((left, right) => left.id.localeCompare(right.id))
+  }
+
+  disablePlugin(pluginId: string): boolean
+  disablePlugin(pluginId: string, audit: PluginAuditContext): Promise<boolean>
+  disablePlugin(pluginId: string, audit?: PluginAuditContext): boolean | Promise<boolean> {
+    if (!audit) {
+      return this.#disablePluginSync(pluginId).disabled
+    }
+
+    return this.#disablePluginWithAudit(pluginId, audit)
+  }
+
+  #loadPluginSync(input: PluginLoadInput): PluginSnapshot {
     validateManifest(input.manifest)
     if (this.#plugins.has(input.manifest.id)) {
       throw new Error(`Plugin already loaded: ${input.manifest.id}`)
@@ -146,22 +189,112 @@ export class PluginManager {
     }
   }
 
-  listPlugins(): readonly PluginSnapshot[] {
-    return Array.from(this.#plugins.values())
-      .map(toPluginSnapshot)
-      .sort((left, right) => left.id.localeCompare(right.id))
+  async #loadPluginWithAudit(
+    input: PluginLoadInput,
+    audit: PluginAuditContext
+  ): Promise<PluginSnapshot> {
+    let snapshot: PluginSnapshot
+    try {
+      snapshot = this.#loadPluginSync(input)
+    } catch (error) {
+      await this.#recordPluginLoadFailed(input.manifest.id, error, audit)
+      throw error
+    }
+
+    try {
+      await this.#recordPluginLoaded(snapshot, audit)
+      return snapshot
+    } catch (error) {
+      this.#toolRegistry.unregisterBySource(input.manifest.id)
+      this.#commandRegistry.unregisterBySource("plugin", input.manifest.id)
+      this.#plugins.delete(input.manifest.id)
+      throw error
+    }
   }
 
-  disablePlugin(pluginId: string): boolean {
+  #disablePluginSync(pluginId: string): PluginDisableResult {
     const plugin = this.#plugins.get(pluginId)
     if (!plugin || plugin.status === "disabled") {
+      return {
+        disabled: false,
+        unregisteredToolCount: 0,
+        unregisteredCommandCount: 0
+      }
+    }
+
+    const unregisteredToolCount = this.#toolRegistry.unregisterBySource(pluginId)
+    const unregisteredCommandCount = this.#commandRegistry.unregisterBySource("plugin", pluginId)
+    plugin.status = "disabled"
+    return {
+      disabled: true,
+      unregisteredToolCount,
+      unregisteredCommandCount
+    }
+  }
+
+  async #disablePluginWithAudit(
+    pluginId: string,
+    audit: PluginAuditContext
+  ): Promise<boolean> {
+    const result = this.#disablePluginSync(pluginId)
+    if (!result.disabled) {
       return false
     }
 
-    this.#toolRegistry.unregisterBySource(pluginId)
-    this.#commandRegistry.unregisterBySource("plugin", pluginId)
-    plugin.status = "disabled"
+    await audit.eventLog.append({
+      sessionId: audit.sessionId,
+      type: "plugin_disabled",
+      actor: "system",
+      correlationId: audit.correlationId,
+      parentEventId: audit.parentEventId,
+      payload: {
+        pluginId,
+        unregisteredToolCount: result.unregisteredToolCount,
+        unregisteredCommandCount: result.unregisteredCommandCount
+      }
+    })
     return true
+  }
+
+  async #recordPluginLoaded(
+    snapshot: PluginSnapshot,
+    audit: PluginAuditContext
+  ): Promise<void> {
+    await audit.eventLog.append({
+      sessionId: audit.sessionId,
+      type: "plugin_loaded",
+      actor: "system",
+      correlationId: audit.correlationId,
+      parentEventId: audit.parentEventId,
+      payload: {
+        pluginId: snapshot.id,
+        name: snapshot.name,
+        version: snapshot.version,
+        access: snapshot.access,
+        permissions: snapshot.permissions,
+        ...(snapshot.routes ? { routes: snapshot.routes } : {}),
+        ...(snapshot.providers ? { providers: snapshot.providers } : {}),
+        ...(snapshot.extensions ? { extensions: snapshot.extensions } : {})
+      }
+    })
+  }
+
+  async #recordPluginLoadFailed(
+    pluginId: string,
+    error: unknown,
+    audit: PluginAuditContext
+  ): Promise<void> {
+    await audit.eventLog.append({
+      sessionId: audit.sessionId,
+      type: "plugin_load_failed",
+      actor: "system",
+      correlationId: audit.correlationId,
+      parentEventId: audit.parentEventId,
+      payload: {
+        pluginId,
+        reason: errorToMessage(error)
+      }
+    })
   }
 }
 
@@ -212,6 +345,10 @@ function validateContributionPermissions(input: PluginLoadInput): void {
       }
     }
   }
+}
+
+function errorToMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
 }
 
 function hasDeclaration(value: readonly string[] | string | undefined): boolean {
