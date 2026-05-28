@@ -1,9 +1,15 @@
 import type { JsonObject, JsonValue, ToolDefinitionSnapshot } from "../../shared/src/session-events.ts"
+import type { ExecutionBoundary } from "./execution-boundary.ts"
+import type { ResourceAccessSubject } from "./resource-access-service.ts"
 
 export type ToolExecutionInput = {
   readonly sessionId: string
   readonly toolCallId: string
   readonly arguments: JsonObject
+}
+
+export type ToolExecutionOptions = {
+  readonly subject?: ResourceAccessSubject
 }
 
 export type ToolExecutor = (input: ToolExecutionInput) => Promise<JsonValue>
@@ -25,8 +31,17 @@ export type ListToolDefinitionsOptions = {
   readonly descriptionOverrides?: Record<string, ToolDescriptionOverride>
 }
 
+export type ToolRegistryOptions = {
+  readonly executionBoundary?: ExecutionBoundary
+}
+
 export class ToolRegistry {
   readonly #tools = new Map<string, ToolRegistration>()
+  readonly #executionBoundary?: ExecutionBoundary
+
+  constructor(options: ToolRegistryOptions = {}) {
+    this.#executionBoundary = options.executionBoundary
+  }
 
   register(tool: ToolRegistration): void {
     if (this.#tools.has(tool.id)) {
@@ -45,11 +60,22 @@ export class ToolRegistry {
       .sort((left, right) => left.id.localeCompare(right.id))
   }
 
-  async execute(toolId: string, input: ToolExecutionInput): Promise<JsonValue> {
+  async execute(
+    toolId: string,
+    input: ToolExecutionInput,
+    options: ToolExecutionOptions = {}
+  ): Promise<JsonValue> {
     const tool = this.#tools.get(toolId)
     if (!tool) {
       throw new Error(`Tool not registered: ${toolId}`)
     }
+
+    this.#executionBoundary?.assertToolExecutionAllowed({
+      sessionId: input.sessionId,
+      toolCallId: input.toolCallId,
+      tool: toToolDefinition(tool),
+      subject: options.subject
+    })
 
     return tool.execute(input)
   }

@@ -45,7 +45,12 @@
 - `core/src/tool-registry.ts`
   - 支持工具注册、重复 id 拒绝、透明 tool definition snapshot。
   - 支持 tool description override，但不允许 override 改变 `schemaChecksum` 或 `permissions`。
-  - 工具执行统一经过 registry 边界。
+  - 工具执行统一经过 registry 边界；配置 `ExecutionBoundary` 后，executor 调用前必须通过权限授权。
+- `core/src/resource-access-service.ts`
+  - 预留 P0 受限 service facade：subject 只能访问显式声明的 permission。
+  - `extension` 资源强制要求 `full-access` subject，保持 `extensions/` 只作为 full-access plugin 兼容入口。
+- `core/src/execution-boundary.ts`
+  - 预留工具执行入口约束：要求显式 execution subject，按工具声明权限映射资源，并在执行前通过 `ResourceAccessService` 授权。
 - `core/src/command-registry.ts`
   - 参考 OpenHanako/HanakoPro slash command registry/dispatcher 边界，命令由用户主动 `/xxx` 输入触发，不伪装成 skill 自动注入。
   - 只向前端暴露 command definition snapshot，不暴露 handler。
@@ -77,7 +82,7 @@ git diff --check
 
 ## 下一步
 
-- 继续 P0/M3 收口：补 service facade 预留；随后进入 P0 memory 最小闭环或 server API/WebSocket 骨架。
+- 继续 P0/M3 收口：补 server-facing facade/API 骨架；随后进入 P0 memory 最小闭环或 WebSocket 事件广播骨架。
 
 ## 参考标注
 
