@@ -66,6 +66,16 @@
   - 支持 built-in/project/user/plugin 来源、session/project/mode/global 绑定、priority 排序、enabled/disabled 状态和 prompt 级 conflict 剔除。
   - 向 `PromptAssembler` 提供 `skill:*` prompt layers 与 `enabledSkillIds`，后续可继续接入 OpenHanako/HanakoPro 风格的丰富角色与技能路径发现。
 
+### P0/M4：记忆闭环起步
+
+- `core/src/memory-service.ts`
+  - 定义 P0 `MemoryItem`、scope、status、visibility 和内存存储接口。
+  - 支持用户可见记忆创建、修正、删除，并写入 `memory_item_created`、`memory_item_updated`、`memory_item_deleted`。
+- `core/src/memory-compiler.ts`
+  - 将 active、未过期、scope 匹配的记忆编译成 `memory:*` prompt layers。
+  - 按 `pinned`、`facts`、`today`、`week`、`longterm`、`project`、`teaching` 分层，保留 memory id 和 source event id 供来源跳转。
+  - 写入 `memory_compiled`；最终 prompt 注入仍由 `PromptAssembler` 记录 `memory_injected`，避免第二事实源。
+
 ## 验证命令
 
 ```powershell
@@ -82,7 +92,7 @@ git diff --check
 
 ## 下一步
 
-- 继续 P0/M3 收口：补 server-facing facade/API 骨架；随后进入 P0 memory 最小闭环或 WebSocket 事件广播骨架。
+- 继续 P0/M4 收口：补 memory 持久化/来源查询预留；随后进入 P0 文件/终端受控链路或 server API/WebSocket 骨架。
 
 ## 参考标注
 
