@@ -31,8 +31,14 @@
   - 生成 checksum、token estimate、tokenBudget warning。
   - 写入 `prompt_layers_resolved`、`memory_injected`、`tools_resolved`、`model_request_started`。
 - `core/src/model-manager.ts`
-  - `ModelManager` 支持 P0 四类模型角色映射，默认可映射到同一个主模型。
+  - 参考 OpenHanako/HanakoPro 的成熟模型管理方式，`availableModels` 是模型解析的唯一事实源。
+  - 模型引用采用 Hanako-style 复合键：`{ id, provider }` 或 `provider/id`。
+  - 运行时边界拒绝裸 `id`，不按 id 猜 provider。
+  - 支持 P0 四类模型角色映射，`smallTool` 可对齐 Hanako 的 `utility`，`largeTool` 可对齐 `utility_large`。
+  - 支持 provider credentials 解析，DeepSeek strict/tool stable mode 等策略先作为 provider/model 策略字段保留。
   - `BasicModelAdapter` 生成 provider-neutral model request snapshot。
+- `shared/src/model-ref.ts`
+  - 复用 OpenHanako 的复合模型引用纪律：parse 可以宽松，runtime require/find/key 必须严格。
 
 ## 验证命令
 
@@ -49,4 +55,13 @@ git diff --check
 ## 下一步
 
 - 继续 P0/M3：`ToolRegistry`、`CommandRegistry`、`PluginManager`、`SkillManager` 最小骨架。
+
+## 参考标注
+
+这些参考只用于实现对齐，不替代 `docs/design.md` 的架构基准：
+
+- OpenHanako `core/model-manager.js`：availableModels 唯一事实源、provider credentials、model registry/provider registry 分离。
+- OpenHanako `shared/model-ref.js`：模型引用必须使用 `{id, provider}` 复合键，运行时不做裸 id fallback。
+- OpenHanako `core/config-coordinator.js`：chat、utility、utility_large、vision 的角色配置组织方式。
+- HanakoPro `README.md`：DeepSeek strict mode、prompt/tool 透明和 Windows 体验优化作为 P0/P2 方向参考。
 - 继续保持 TDD：先写测试，再实现最小代码。

@@ -24,7 +24,7 @@
 
 ## 开发状态
 
-当前阶段已推进到 P0/M2 PromptBundle、PromptAssembler、ModelManager 与 BasicModelAdapter 骨架。已有 shared event contract、append-only `SessionEventLog`、PromptBundle 契约、PromptAssembler 层装配、prompt/memory/tools/model 请求事件写入、模型角色映射和 provider-neutral 请求快照测试。
+当前阶段已推进到 P0/M2 ModelManager 对齐。已有 shared event contract、append-only `SessionEventLog`、PromptBundle 契约、PromptAssembler 层装配、prompt/memory/tools/model 请求事件写入、Hanako-style 模型复合引用、模型角色映射、provider credentials 解析和 provider-neutral 请求快照测试。
 
 本地验证命令：
 
