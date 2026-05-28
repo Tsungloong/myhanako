@@ -78,6 +78,14 @@
   - 按 `pinned`、`facts`、`today`、`week`、`longterm`、`project`、`teaching` 分层，保留 memory id 和 source event id 供来源跳转。
   - 写入 `memory_compiled`；最终 prompt 注入仍由 `PromptAssembler` 记录 `memory_injected`，避免第二事实源。
 
+### P0/M5：文件受控链路起步
+
+- `core/src/workspace-service.ts`
+  - 新增 `WorkspaceService`，所有文件读取先经过 workspace root 路径策略，产生 `file_snapshot_read`。
+  - 新增 `PatchService` 与 `PatchModel`，以 full-file replacement 作为 P0 最小 patch 事实模型，产生 `file_patch_proposed`。
+  - `WorkspaceService.commitPatch` 在写入前校验 base checksum，避免覆盖用户或外部进程的新改动，并产生 `file_write_committed`。
+  - 先稳定 core 事实链路；`DiffModel`、FileDiffCard 展示和 badlogic/pi-diff-review 式命令后续作为 UI/plugin/command 层扩展。
+
 ## 验证命令
 
 ```powershell
@@ -94,7 +102,7 @@ git diff --check
 
 ## 下一步
 
-- 进入 P0 文件/终端受控链路或 server API/WebSocket 骨架；memory 后续按产品需要补来源事件读取投影、压缩和冲突处理。
+- 继续 P0/M5：补 `DiffService.renderDiffModel` 或进入 `TerminalService` 事件化；memory 后续按产品需要补来源事件读取投影、压缩和冲突处理。
 
 ## 参考标注
 
