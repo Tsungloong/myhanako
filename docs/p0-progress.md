@@ -54,6 +54,7 @@
   - 实现 P0 最小 plugin manifest/contribution 编排，保持 Hanako-style restricted/full-access 语义。
   - restricted plugin 只允许静态 tools/commands 贡献；routes/providers/extensions/runtime 保留给 full-access metadata，不在 P0 执行 extension code。
   - plugin 贡献通过 `ToolRegistry` / `CommandRegistry` 注册，禁用 plugin 时按 source/sourceId 卸载贡献。
+  - 支持本地 plugin manifest 发现/加载：扫描 plugin 根目录或集合目录下的 `plugin.json` / `.codex-plugin/plugin.json`，只加载 manifest metadata，不执行 runtime 或 extension code。
 - `core/src/skill-manager.ts`
   - 实现 P0 最小 skill metadata/binding/prompt context 编排，skill 只提供行为模式和 prompt layer，不隐式暴露 `/xxx` command。
   - 支持 built-in/project/user/plugin 来源、session/project/mode/global 绑定、priority 排序、enabled/disabled 状态和 prompt 级 conflict 剔除。
@@ -69,12 +70,12 @@ git diff --check
 ## 远程维护状态
 
 - 已推送远程分支：`feat/p0-event-log`
-- Draft PR：https://github.com/Tsungloong/myhanako/pull/3
-- GitHub 连接器更新 PR 描述返回 `Resource not accessible by integration`；如需修改 PR metadata，需要先修复 GitHub App/CLI 权限。
+- PR：https://github.com/Tsungloong/myhanako/pull/3
+- GitHub 连接器更新 PR metadata 仍返回 `Resource not accessible by integration`；当前 PR 描述更新通过提权后的本机 `gh` CLI 完成。
 
 ## 下一步
 
-- 继续 P0/M3：补 `PluginManager` 与本地 manifest 发现/加载；随后进入 P0 memory 最小闭环或 server API/WebSocket 骨架。
+- 继续 P0/M3 收口：补 plugin 行为事件记录或 service facade 预留；随后进入 P0 memory 最小闭环或 server API/WebSocket 骨架。
 
 ## 参考标注
 

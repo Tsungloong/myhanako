@@ -1,3 +1,5 @@
+import { readdir, readFile, stat } from "node:fs/promises"
+import { join, resolve } from "node:path"
 import {
   CommandRegistry,
   type CommandRegistration
@@ -47,6 +49,12 @@ export type PluginLoadInput = {
   readonly commands?: readonly PluginCommandContribution[]
 }
 
+export type LocalPluginManifest = {
+  readonly rootDir: string
+  readonly manifestPath: string
+  readonly manifest: PluginManifest
+}
+
 export type PluginManagerOptions = {
   readonly toolRegistry: ToolRegistry
   readonly commandRegistry: CommandRegistry
@@ -58,6 +66,7 @@ type LoadedPlugin = {
 }
 
 const FULL_ACCESS_ONLY_FIELDS = ["routes", "providers", "extensions", "runtime"] as const
+const LOCAL_PLUGIN_MANIFEST_PATHS = ["plugin.json", ".codex-plugin/plugin.json"] as const
 
 export class PluginManager {
   readonly #toolRegistry: ToolRegistry
@@ -67,6 +76,24 @@ export class PluginManager {
   constructor(options: PluginManagerOptions) {
     this.#toolRegistry = options.toolRegistry
     this.#commandRegistry = options.commandRegistry
+  }
+
+  async discoverLocalPlugins(rootDirs: readonly string[]): Promise<readonly LocalPluginManifest[]> {
+    return discoverLocalPluginManifests(rootDirs)
+  }
+
+  async loadLocalPlugins(rootDirs: readonly string[]): Promise<readonly PluginSnapshot[]> {
+    const discoveredPlugins = await this.discoverLocalPlugins(rootDirs)
+    const seenPluginIds = new Set<string>()
+
+    for (const plugin of discoveredPlugins) {
+      if (seenPluginIds.has(plugin.manifest.id) || this.#plugins.has(plugin.manifest.id)) {
+        throw new Error(`Plugin already loaded: ${plugin.manifest.id}`)
+      }
+      seenPluginIds.add(plugin.manifest.id)
+    }
+
+    return discoveredPlugins.map((plugin) => this.loadPlugin({ manifest: plugin.manifest }))
   }
 
   loadPlugin(input: PluginLoadInput): PluginSnapshot {
@@ -218,4 +245,201 @@ function withoutUndefinedArrays(snapshot: PluginSnapshot): PluginSnapshot {
   return Object.fromEntries(
     Object.entries(snapshot).filter(([, value]) => value !== undefined)
   ) as PluginSnapshot
+}
+
+export async function discoverLocalPluginManifests(
+  rootDirs: readonly string[]
+): Promise<readonly LocalPluginManifest[]> {
+  const candidates = new Map<string, { rootDir: string; manifestPath: string }>()
+
+  for (const rootDir of rootDirs) {
+    const resolvedRootDir = resolve(rootDir)
+    const rootManifestPath = await findLocalPluginManifestPath(resolvedRootDir)
+
+    if (rootManifestPath) {
+      candidates.set(rootManifestPath, {
+        rootDir: resolvedRootDir,
+        manifestPath: rootManifestPath
+      })
+      continue
+    }
+
+    for (const child of await readDirectoryEntries(resolvedRootDir)) {
+      if (!child.isDirectory()) {
+        continue
+      }
+
+      const childRootDir = join(resolvedRootDir, child.name)
+      const childManifestPath = await findLocalPluginManifestPath(childRootDir)
+      if (childManifestPath) {
+        candidates.set(childManifestPath, {
+          rootDir: childRootDir,
+          manifestPath: childManifestPath
+        })
+      }
+    }
+  }
+
+  const manifests: LocalPluginManifest[] = []
+  for (const candidate of Array.from(candidates.values()).sort((left, right) =>
+    left.manifestPath.localeCompare(right.manifestPath)
+  )) {
+    manifests.push({
+      ...candidate,
+      manifest: await readLocalPluginManifest(candidate.manifestPath)
+    })
+  }
+
+  return manifests.sort((left, right) => left.manifest.id.localeCompare(right.manifest.id))
+}
+
+async function findLocalPluginManifestPath(pluginRootDir: string): Promise<string | null> {
+  for (const manifestPath of LOCAL_PLUGIN_MANIFEST_PATHS) {
+    const candidatePath = join(pluginRootDir, manifestPath)
+    if (await isReadableFile(candidatePath)) {
+      return candidatePath
+    }
+  }
+
+  return null
+}
+
+async function readLocalPluginManifest(manifestPath: string): Promise<PluginManifest> {
+  let rawManifest: string
+  try {
+    rawManifest = await readFile(manifestPath, "utf8")
+  } catch (error) {
+    throw new Error(`Plugin manifest not readable: ${manifestPath}`, { cause: error })
+  }
+
+  let parsedManifest: unknown
+  try {
+    parsedManifest = JSON.parse(rawManifest)
+  } catch (error) {
+    throw new Error(`Plugin manifest JSON invalid: ${manifestPath}`, { cause: error })
+  }
+
+  const manifest = parsePluginManifest(parsedManifest, manifestPath)
+  validateManifest(manifest)
+  validateAccess(manifest)
+  return manifest
+}
+
+function parsePluginManifest(value: unknown, manifestPath: string): PluginManifest {
+  if (!isRecord(value)) {
+    throw new Error(`Plugin manifest must be an object: ${manifestPath}`)
+  }
+
+  const manifest: PluginManifest = {
+    id: readStringField(value, "id", manifestPath),
+    name: readStringField(value, "name", manifestPath),
+    version: readStringField(value, "version", manifestPath),
+    access: readAccessField(value, manifestPath),
+    permissions: readStringArrayField(value, "permissions", manifestPath),
+    routes: readOptionalStringArrayField(value, "routes", manifestPath),
+    providers: readOptionalStringArrayField(value, "providers", manifestPath),
+    extensions: readOptionalStringArrayField(value, "extensions", manifestPath),
+    runtime: readOptionalStringField(value, "runtime", manifestPath)
+  }
+
+  return withoutUndefinedManifestFields(manifest)
+}
+
+async function readDirectoryEntries(directoryPath: string) {
+  try {
+    return await readdir(directoryPath, { withFileTypes: true })
+  } catch (error) {
+    if (hasErrorCode(error, "ENOENT") || hasErrorCode(error, "ENOTDIR")) {
+      return []
+    }
+    throw error
+  }
+}
+
+async function isReadableFile(filePath: string): Promise<boolean> {
+  try {
+    const file = await stat(filePath)
+    return file.isFile()
+  } catch (error) {
+    if (hasErrorCode(error, "ENOENT") || hasErrorCode(error, "ENOTDIR")) {
+      return false
+    }
+    throw error
+  }
+}
+
+function readStringField(
+  value: Record<string, unknown>,
+  field: string,
+  manifestPath: string
+): string {
+  const fieldValue = value[field]
+  if (typeof fieldValue !== "string") {
+    throw new Error(`Plugin manifest field ${field} must be a string: ${manifestPath}`)
+  }
+  return fieldValue
+}
+
+function readOptionalStringField(
+  value: Record<string, unknown>,
+  field: string,
+  manifestPath: string
+): string | undefined {
+  const fieldValue = value[field]
+  if (fieldValue === undefined) {
+    return undefined
+  }
+  if (typeof fieldValue !== "string") {
+    throw new Error(`Plugin manifest field ${field} must be a string: ${manifestPath}`)
+  }
+  return fieldValue
+}
+
+function readAccessField(value: Record<string, unknown>, manifestPath: string): PluginAccess {
+  const access = value.access
+  if (access !== "restricted" && access !== "full-access") {
+    throw new Error(`Plugin manifest access invalid: ${manifestPath}`)
+  }
+  return access
+}
+
+function readStringArrayField(
+  value: Record<string, unknown>,
+  field: string,
+  manifestPath: string
+): readonly string[] {
+  const fieldValue = value[field]
+  if (!Array.isArray(fieldValue) || !fieldValue.every((item) => typeof item === "string")) {
+    throw new Error(`Plugin manifest field ${field} must be a string array: ${manifestPath}`)
+  }
+  return fieldValue
+}
+
+function readOptionalStringArrayField(
+  value: Record<string, unknown>,
+  field: string,
+  manifestPath: string
+): readonly string[] | undefined {
+  const fieldValue = value[field]
+  if (fieldValue === undefined) {
+    return undefined
+  }
+  if (!Array.isArray(fieldValue) || !fieldValue.every((item) => typeof item === "string")) {
+    throw new Error(`Plugin manifest field ${field} must be a string array: ${manifestPath}`)
+  }
+  return fieldValue
+}
+
+function withoutUndefinedManifestFields(manifest: PluginManifest): PluginManifest {
+  return Object.fromEntries(
+    Object.entries(manifest).filter(([, value]) => value !== undefined)
+  ) as PluginManifest
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function hasErrorCode(error: unknown, code: string): boolean {
+  return isRecord(error) && error.code === code
 }

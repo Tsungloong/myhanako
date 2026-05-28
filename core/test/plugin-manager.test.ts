@@ -1,4 +1,7 @@
 import assert from "node:assert/strict"
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import test from "node:test"
 import { CommandRegistry } from "../src/command-registry.ts"
 import { PluginManager } from "../src/plugin-manager.ts"
@@ -187,4 +190,66 @@ test("PluginManager rolls back registry contributions when plugin loading fails"
 
   assert.deepEqual(manager.listPlugins(), [])
   assert.deepEqual(toolRegistry.listDefinitions(), [])
+})
+
+test("PluginManager discovers and loads local plugin manifests without executing runtime declarations", async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), "myhanako-plugins-"))
+  const workspacePluginDir = join(rootDir, "workspace")
+  const nativePluginDir = join(rootDir, "native")
+
+  await mkdir(workspacePluginDir)
+  await mkdir(join(nativePluginDir, ".codex-plugin"), { recursive: true })
+  await writeFile(
+    join(workspacePluginDir, "plugin.json"),
+    JSON.stringify({
+      id: "plugin:workspace",
+      name: "Workspace helpers",
+      version: "0.1.0",
+      access: "restricted",
+      permissions: ["workspace:read"]
+    })
+  )
+  await writeFile(
+    join(nativePluginDir, ".codex-plugin", "plugin.json"),
+    JSON.stringify({
+      id: "plugin:native",
+      name: "Native bridge",
+      version: "0.1.0",
+      access: "full-access",
+      permissions: ["network:access"],
+      runtime: "index.ts",
+      extensions: ["extensions/native"]
+    })
+  )
+
+  const manager = new PluginManager({
+    toolRegistry: new ToolRegistry(),
+    commandRegistry: new CommandRegistry()
+  })
+
+  const loadedPlugins = await manager.loadLocalPlugins([rootDir])
+
+  assert.deepEqual(
+    loadedPlugins.map((plugin) => plugin.id),
+    ["plugin:native", "plugin:workspace"]
+  )
+  assert.deepEqual(manager.listPlugins(), [
+    {
+      id: "plugin:native",
+      name: "Native bridge",
+      version: "0.1.0",
+      access: "full-access",
+      status: "enabled",
+      permissions: ["network:access"],
+      extensions: ["extensions/native"]
+    },
+    {
+      id: "plugin:workspace",
+      name: "Workspace helpers",
+      version: "0.1.0",
+      access: "restricted",
+      status: "enabled",
+      permissions: ["workspace:read"]
+    }
+  ])
 })
