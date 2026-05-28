@@ -53,6 +53,17 @@ export class ToolRegistry {
 
     return tool.execute(input)
   }
+
+  unregisterBySource(source: string): number {
+    let count = 0
+    for (const [toolId, tool] of Array.from(this.#tools.entries())) {
+      if (tool.source === source) {
+        this.#tools.delete(toolId)
+        count += 1
+      }
+    }
+    return count
+  }
 }
 
 function toToolDefinition(

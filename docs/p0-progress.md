@@ -50,6 +50,10 @@
   - 参考 OpenHanako/HanakoPro slash command registry/dispatcher 边界，命令由用户主动 `/xxx` 输入触发，不伪装成 skill 自动注入。
   - 只向前端暴露 command definition snapshot，不暴露 handler。
   - 支持 name/alias 归一化、核心保留命令保护、按 source/sourceId 卸载和 `command_invoked` 事件记录。
+- `core/src/plugin-manager.ts`
+  - 实现 P0 最小 plugin manifest/contribution 编排，保持 Hanako-style restricted/full-access 语义。
+  - restricted plugin 只允许静态 tools/commands 贡献；routes/providers/extensions/runtime 保留给 full-access metadata，不在 P0 执行 extension code。
+  - plugin 贡献通过 `ToolRegistry` / `CommandRegistry` 注册，禁用 plugin 时按 source/sourceId 卸载贡献。
 
 ## 验证命令
 
@@ -65,7 +69,7 @@ git diff --check
 
 ## 下一步
 
-- 继续 P0/M3：`PluginManager`、`SkillManager` 最小骨架，并接入 `ToolRegistry` / `CommandRegistry`。
+- 继续 P0/M3：`SkillManager` 最小骨架，并接入 `PromptAssembler`；随后补 `PluginManager` 与本地 manifest 发现/加载。
 
 ## 参考标注
 
