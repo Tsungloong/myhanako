@@ -8,7 +8,7 @@
 - 当前实施计划：[docs/implementation-plan.md](docs/implementation-plan.md)
 - 工程流程约定：[docs/engineering-workflow.md](docs/engineering-workflow.md)
 
-`初步报告.md` 和未进入 `docs/design.md` 的早期讨论不作为后续开发依据，避免在实现阶段引入未审核信息。
+未进入 `docs/design.md` 的早期讨论不作为后续开发依据，避免在实现阶段引入未审核信息。
 
 ## 项目方向
 
