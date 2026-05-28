@@ -40,6 +40,13 @@
 - `shared/src/model-ref.ts`
   - 复用 OpenHanako 的复合模型引用纪律：parse 可以宽松，runtime require/find/key 必须严格。
 
+### P0/M3：plugin/skill/tool 起步
+
+- `core/src/tool-registry.ts`
+  - 支持工具注册、重复 id 拒绝、透明 tool definition snapshot。
+  - 支持 tool description override，但不允许 override 改变 `schemaChecksum` 或 `permissions`。
+  - 工具执行统一经过 registry 边界。
+
 ## 验证命令
 
 ```powershell
@@ -54,7 +61,7 @@ git diff --check
 
 ## 下一步
 
-- 继续 P0/M3：`ToolRegistry`、`CommandRegistry`、`PluginManager`、`SkillManager` 最小骨架。
+- 继续 P0/M3：`CommandRegistry`、`PluginManager`、`SkillManager` 最小骨架。
 
 ## 参考标注
 
