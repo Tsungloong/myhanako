@@ -46,6 +46,10 @@
   - 支持工具注册、重复 id 拒绝、透明 tool definition snapshot。
   - 支持 tool description override，但不允许 override 改变 `schemaChecksum` 或 `permissions`。
   - 工具执行统一经过 registry 边界。
+- `core/src/command-registry.ts`
+  - 参考 OpenHanako/HanakoPro slash command registry/dispatcher 边界，命令由用户主动 `/xxx` 输入触发，不伪装成 skill 自动注入。
+  - 只向前端暴露 command definition snapshot，不暴露 handler。
+  - 支持 name/alias 归一化、核心保留命令保护、按 source/sourceId 卸载和 `command_invoked` 事件记录。
 
 ## 验证命令
 
@@ -61,7 +65,7 @@ git diff --check
 
 ## 下一步
 
-- 继续 P0/M3：`CommandRegistry`、`PluginManager`、`SkillManager` 最小骨架。
+- 继续 P0/M3：`PluginManager`、`SkillManager` 最小骨架，并接入 `ToolRegistry` / `CommandRegistry`。
 
 ## 参考标注
 
