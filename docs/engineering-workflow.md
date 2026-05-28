@@ -40,7 +40,7 @@ test: cover terminal output normalization
 
 ## 3. PR 审核规则
 
-即使是个人私有仓库，也按 PR 习惯组织变更：
+即使是个人公开仓库，也按 PR 习惯组织变更：
 
 - PR 必须说明对应的设计章节或计划里程碑。
 - PR 必须列出行为变化和验证方式。
@@ -65,7 +65,13 @@ npm run lint
 npm run typecheck
 ```
 
-具体命令以后以项目脚本为准。
+当前已有脚本：
+
+```powershell
+npm test
+```
+
+后续补充 lint、typecheck 或 build 后，以 `package.json` 脚本为准。
 
 ## 5. GitHub 仓库设置
 
@@ -77,7 +83,7 @@ Tsungloong/myhanako
 
 推荐设置：
 
-- 仓库可见性：private。
+- 仓库可见性：public。
 - 默认分支：`main`。
 - 开启 branch protection，至少保护 `main`。
 - 禁止直接 force push 到 `main`。

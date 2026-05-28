@@ -23,4 +23,11 @@
 
 ## 开发状态
 
-当前阶段是架构基线和实施计划阶段，尚未进入核心代码实现。后续代码实现应从 P0 可审计内核开始，并保持 `docs/design.md` 的约束优先级。
+当前阶段已推进到 P0/M2 PromptBundle 与 PromptAssembler 骨架。已有 shared event contract、append-only `SessionEventLog`、PromptBundle 契约、PromptAssembler 层装配和 prompt/memory/tools/model 请求事件写入测试。
+
+本地验证命令：
+
+```powershell
+npm test
+git diff --check
+```
