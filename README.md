@@ -6,6 +6,7 @@
 
 - 唯一架构文字基准：[docs/design.md](docs/design.md)
 - 当前实施计划：[docs/implementation-plan.md](docs/implementation-plan.md)
+- P0 开发进度记录：[docs/p0-progress.md](docs/p0-progress.md)
 - 工程流程约定：[docs/engineering-workflow.md](docs/engineering-workflow.md)
 
 未进入 `docs/design.md` 的早期讨论不作为后续开发依据，避免在实现阶段引入未审核信息。
@@ -23,7 +24,7 @@
 
 ## 开发状态
 
-当前阶段已推进到 P0/M2 PromptBundle 与 PromptAssembler 骨架。已有 shared event contract、append-only `SessionEventLog`、PromptBundle 契约、PromptAssembler 层装配和 prompt/memory/tools/model 请求事件写入测试。
+当前阶段已推进到 P0/M2 PromptBundle、PromptAssembler、ModelManager 与 BasicModelAdapter 骨架。已有 shared event contract、append-only `SessionEventLog`、PromptBundle 契约、PromptAssembler 层装配、prompt/memory/tools/model 请求事件写入、模型角色映射和 provider-neutral 请求快照测试。
 
 本地验证命令：
 
