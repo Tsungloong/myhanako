@@ -71,6 +71,8 @@
 - `core/src/memory-service.ts`
   - 定义 P0 `MemoryItem`、scope、status、visibility 和内存存储接口。
   - 支持用户可见记忆创建、修正、删除，并写入 `memory_item_created`、`memory_item_updated`、`memory_item_deleted`。
+  - 支持 `JsonlMemoryStore`，用 upsert/delete tombstone 记录折叠出当前记忆状态，作为 `PIAGENT_HOME/memory` 持久化预留。
+  - 暴露 `getItem` 与 `getSourceReference`，为桌面记忆面板的来源跳转保留稳定接口。
 - `core/src/memory-compiler.ts`
   - 将 active、未过期、scope 匹配的记忆编译成 `memory:*` prompt layers。
   - 按 `pinned`、`facts`、`today`、`week`、`longterm`、`project`、`teaching` 分层，保留 memory id 和 source event id 供来源跳转。
@@ -92,7 +94,7 @@ git diff --check
 
 ## 下一步
 
-- 继续 P0/M4 收口：补 memory 持久化/来源查询预留；随后进入 P0 文件/终端受控链路或 server API/WebSocket 骨架。
+- 进入 P0 文件/终端受控链路或 server API/WebSocket 骨架；memory 后续按产品需要补来源事件读取投影、压缩和冲突处理。
 
 ## 参考标注
 

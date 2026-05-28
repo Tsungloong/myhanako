@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto"
+import { appendFile, mkdir, readFile } from "node:fs/promises"
+import { join } from "node:path"
 import type { JsonObject } from "../../shared/src/session-events.ts"
 import type { SessionEventLog } from "./session-event-log.ts"
 
@@ -21,6 +23,12 @@ export type MemoryScope =
       readonly kind: "project" | "workspace" | "session"
       readonly id: string
     }
+
+export type MemorySourceReference = {
+  readonly memoryId: string
+  readonly sessionId: string
+  readonly eventIds: readonly string[]
+}
 
 export type MemoryItem = {
   readonly id: string
@@ -102,6 +110,95 @@ export class InMemoryMemoryStore implements MemoryStore {
     return Array.from(this.#items.values())
       .map(cloneMemoryItem)
       .sort((left, right) => left.id.localeCompare(right.id))
+  }
+}
+
+type JsonlMemoryRecord =
+  | {
+      readonly op: "put"
+      readonly item: MemoryItem
+    }
+  | {
+      readonly op: "delete"
+      readonly id: string
+    }
+
+export class JsonlMemoryStore implements MemoryStore {
+  readonly #rootDir: string
+
+  constructor(rootDir: string) {
+    this.#rootDir = rootDir
+  }
+
+  async get(id: string): Promise<MemoryItem | null> {
+    const items = await this.#loadItems()
+    const item = items.get(id)
+    return item ? cloneMemoryItem(item) : null
+  }
+
+  async put(item: MemoryItem): Promise<void> {
+    await this.#append({
+      op: "put",
+      item: cloneMemoryItem(item)
+    })
+  }
+
+  async delete(id: string): Promise<boolean> {
+    const items = await this.#loadItems()
+    if (!items.has(id)) {
+      return false
+    }
+
+    await this.#append({
+      op: "delete",
+      id
+    })
+    return true
+  }
+
+  async list(): Promise<readonly MemoryItem[]> {
+    return Array.from((await this.#loadItems()).values())
+      .map(cloneMemoryItem)
+      .sort((left, right) => left.id.localeCompare(right.id))
+  }
+
+  async #append(record: JsonlMemoryRecord): Promise<void> {
+    await mkdir(this.#rootDir, { recursive: true })
+    await appendFile(this.#filePath(), `${JSON.stringify(record)}\n`, "utf8")
+  }
+
+  async #loadItems(): Promise<Map<string, MemoryItem>> {
+    let content: string
+    try {
+      content = await readFile(this.#filePath(), "utf8")
+    } catch (error) {
+      if (isNodeError(error) && error.code === "ENOENT") {
+        return new Map()
+      }
+      throw error
+    }
+
+    const items = new Map<string, MemoryItem>()
+    for (const line of content.split(/\r?\n/)) {
+      if (line.trim().length === 0) {
+        continue
+      }
+
+      const record = JSON.parse(line) as JsonlMemoryRecord
+      if (record.op === "put") {
+        const item = cloneMemoryItem(record.item)
+        items.set(item.id, item)
+      } else if (record.op === "delete") {
+        items.delete(record.id)
+      } else {
+        throw new Error("Unknown memory JSONL record operation")
+      }
+    }
+    return items
+  }
+
+  #filePath(): string {
+    return join(this.#rootDir, "memories.jsonl")
   }
 }
 
@@ -212,6 +309,24 @@ export class MemoryService {
     return true
   }
 
+  async getItem(id: string): Promise<MemoryItem | null> {
+    const item = await this.#store.get(id)
+    return item ? cloneMemoryItem(item) : null
+  }
+
+  async getSourceReference(id: string): Promise<MemorySourceReference> {
+    const item = await this.getItem(id)
+    if (!item) {
+      throw new Error(`Memory item not found: ${id}`)
+    }
+
+    return {
+      memoryId: item.id,
+      sessionId: item.sourceSessionId,
+      eventIds: [...item.sourceEventIds]
+    }
+  }
+
   async listItems(): Promise<readonly MemoryItem[]> {
     return this.#store.list()
   }
@@ -235,4 +350,8 @@ function toJsonObject(value: UpdateMemoryItemInput): JsonObject {
   return Object.fromEntries(
     Object.entries(value).filter(([, item]) => item !== undefined)
   ) as JsonObject
+}
+
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error
 }
