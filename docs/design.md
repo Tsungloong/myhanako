@@ -108,6 +108,28 @@ HanakoPro 是体验增强参考，尤其是：
 - 需降级：`PromptAssembler`、`ModelAdapter`、`AgentRuntime` 类设计不得替代 Pi SDK session。
 - 需重接：plugin/skill/tool/command 必须对齐 OpenHanako contribution 和 Pi `DefaultResourceLoader`。
 
+## 当前仓库实现归位
+
+截至 2026-05-29，`myhanako` 仓库已经推进到 P0/M5 文件受控链路起步。当前代码必须按下表重新归位；该表用于解释已有实现的架构角色，不替代 `docs/p0-progress.md` 的进度记录。
+
+| 范围 | 已有文件 | 设计定位 | 后续动作 |
+| --- | --- | --- | --- |
+| shared contract | `shared/src/session-events.ts`、`shared/src/session-projection.ts`、`shared/src/prompt-bundle.ts`、`shared/src/model-ref.ts` | 保留为跨进程 contract、projection 和严格模型引用纪律。 | 将事件类型映射到 OpenHanako/Pi session stream，避免把当前 event contract 当成 session truth。 |
+| event mirror | `core/src/session-event-log.ts` | 保留为 append-only 审计镜像和 UI 投影事件源。 | 接收 `SessionCoordinator` 转发的关键事件，不反向驱动 Pi SDK session。 |
+| prompt/model snapshot | `core/src/prompt-assembler.ts`、`core/src/model-manager.ts` | 作为 prompt/tool/model 透明化快照和严格 provider/id 解析层。 | `PromptAssembler` 不再拥有 prompt 主链；`BasicModelAdapter` 不得演化成独立 provider runtime。 |
+| tool/command/plugin/skill | `core/src/tool-registry.ts`、`core/src/command-registry.ts`、`core/src/plugin-manager.ts`、`core/src/skill-manager.ts` | 作为 contribution 管理、定义快照和 restricted/full-access 语义验证层。 | 重接到 OpenHanako contribution pipeline 和 Pi `DefaultResourceLoader/buildTools`。 |
+| memory | `core/src/memory-service.ts`、`core/src/memory-compiler.ts` | 保留为用户可见记忆、来源追踪和编译投影。 | 注入必须走 Pi/OpenHanako-compatible prompt 或 resource 路径，并写入透明化快照。 |
+| file/diff | `core/src/workspace-service.ts`、`core/src/diff-service.ts` | 保留为路径策略、snapshot、patch、checksum conflict check 和 UI-neutral `DiffModel`。 | 接到 Pi/OpenHanako 文件工具链外侧，作为 Diff card 和审计增强层。 |
+| permission boundary | `core/src/resource-access-service.ts`、`core/src/execution-boundary.ts` | 保留为受限 service facade 和工具执行前检查点。 | 对齐 OpenHanako restricted/full-access plugin 边界，不单独发明授权体系。 |
+| runtime spine | 尚未落地：`lib/pi-sdk`、`SessionCoordinator`、`server`、`hub`、`desktop` | P0 的主要缺口。 | 先完成 OpenHanako compatibility audit，再按 `lib/pi-sdk -> Engine/SessionCoordinator -> ResourceLoader -> projection` 顺序落地。 |
+
+落地顺序约束：
+
+1. 在新增 runtime 主链代码前，先审计 `F:\openhanako-main` 中可直接复用、需要薄适配和不应搬运的模块。
+2. 先建立 `lib/pi-sdk` import 边界，再引入 `createAgentSession` 和 `SessionManager`。
+3. 在 `DefaultResourceLoader` 对齐前，不扩大自建 tool/plugin/skill runtime 能力。
+4. 当前 clean-room 模块只允许做 bugfix、测试补强和对齐改造；新功能必须服务 OpenHanako/Pi 主链接入。
+
 ## 系统架构
 
 ### 总体分层
@@ -409,6 +431,13 @@ P0 测试重点从“自建 runtime 单测”调整为“OpenHanako-compatible i
 - terminal output event ordering and Windows normalization。
 
 P1/P2 增加 desktop render tests、FileDiffCard、Terminal card、Memory panel、prompt/tool inspector、Windows installer and packaged runtime smoke。
+
+当前仓库验证基线：
+
+- 文档或计划更新：至少运行 `git diff --check`，确认没有空白、编码或 Markdown diff 异常。
+- 现有 TypeScript contract/service 改动：运行 `npm test`，覆盖 shared contract、event log、prompt、memory、workspace/diff、model、tool、command、plugin、skill 和权限边界测试。
+- 引入 `lib/pi-sdk` 后：新增 import discipline test，证明生产代码只能通过 `lib/pi-sdk` 接触 Pi SDK package。
+- 接入真实 session 后：新增 `createAgentSession` smoke test，证明项目内依赖可以创建、流式输出、调用工具并恢复 session。
 
 ## Iteration Plan
 
