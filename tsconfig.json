@@ -10,6 +10,7 @@
   },
   "include": [
     "core/**/*.ts",
-    "shared/**/*.ts"
+    "shared/**/*.ts",
+    "server/**/*.ts"
   ]
 }

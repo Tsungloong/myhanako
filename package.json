@@ -3,11 +3,17 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "PiAgent-native architecture experiments for myhanako.",
+  "description": "OpenHanako-first PiAgent runtime baseline for myhanako.",
   "scripts": {
-    "test": "node --test shared/test/session-events.test.ts shared/test/prompt-bundle.test.ts core/test/session-event-log.test.ts core/test/prompt-assembler.test.ts",
+    "test": "node --test shared/test/session-events.test.ts shared/test/prompt-bundle.test.ts shared/test/model-ref.test.ts lib/test/pi-sdk-adapter.test.ts lib/test/pi-sdk-import.test.ts lib/test/pi-sdk-session-smoke.test.ts lib/test/import-discipline.test.ts core/test/engine.test.ts core/test/session-coordinator.test.ts core/test/session-stream-mirror.test.ts core/test/enhancement-projection.test.ts core/test/runtime-resource-loader.test.ts core/test/runtime-contributions.test.ts core/test/session-runtime-resolver.test.ts core/test/session-event-log.test.ts core/test/prompt-assembler.test.ts core/test/memory-service.test.ts core/test/memory-compiler.test.ts core/test/workspace-service.test.ts core/test/diff-service.test.ts core/test/model-manager.test.ts core/test/tool-registry.test.ts core/test/resource-access-service.test.ts core/test/execution-boundary.test.ts core/test/command-registry.test.ts core/test/plugin-manager.test.ts core/test/skill-manager.test.ts server/test/local-server.test.ts",
+    "test:pi-adapter": "node --test lib/test/pi-sdk-adapter.test.ts lib/test/pi-sdk-import.test.ts lib/test/pi-sdk-session-smoke.test.ts lib/test/import-discipline.test.ts",
+    "test:import-discipline": "node --test lib/test/import-discipline.test.ts",
     "test:events": "node --test shared/test/session-events.test.ts core/test/session-event-log.test.ts",
     "check": "npm test"
+  },
+  "dependencies": {
+    "@mariozechner/pi-ai": "0.70.5",
+    "@mariozechner/pi-coding-agent": "0.70.2"
   },
   "engines": {
     "node": ">=24.0.0"

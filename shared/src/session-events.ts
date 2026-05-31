@@ -27,10 +27,16 @@ export const SESSION_EVENT_TYPES = [
   "memory_compiled",
   "memory_injected",
   "command_invoked",
+  "plugin_loaded",
+  "plugin_disabled",
+  "plugin_load_failed",
   "prompt_draft_created",
   "assistant_interrupted",
   "message_recalled",
+  "session_created",
+  "session_opened",
   "session_recovered",
+  "session_disposed",
   "tools_resolved",
   "model_request_started"
 ] as const
@@ -62,6 +68,7 @@ export type ToolDefinitionSnapshot = {
   readonly source: string
   readonly description: string
   readonly schemaChecksum: string
+  readonly parameters?: JsonObject
   readonly permissions: readonly string[]
 }
 
@@ -189,6 +196,25 @@ export type SessionEventPayloadMap = {
     readonly rawInput: string
     readonly arguments?: JsonObject
   }
+  plugin_loaded: {
+    readonly pluginId: string
+    readonly name: string
+    readonly version: string
+    readonly access: "restricted" | "full-access"
+    readonly permissions: readonly string[]
+    readonly routes?: readonly string[]
+    readonly providers?: readonly string[]
+    readonly extensions?: readonly string[]
+  }
+  plugin_disabled: {
+    readonly pluginId: string
+    readonly unregisteredToolCount: number
+    readonly unregisteredCommandCount: number
+  }
+  plugin_load_failed: {
+    readonly pluginId: string
+    readonly reason: string
+  }
   prompt_draft_created: {
     readonly draftId: string
     readonly source: string
@@ -201,9 +227,22 @@ export type SessionEventPayloadMap = {
     readonly targetMessageId: string
     readonly reason?: string
   }
+  session_created: {
+    readonly cwd: string
+    readonly sessionFile?: string
+  }
+  session_opened: {
+    readonly cwd?: string
+    readonly sessionFile: string
+  }
   session_recovered: {
     readonly recoveredFromEventId?: string
     readonly recoveredEventCount: number
+    readonly sessionFile?: string
+  }
+  session_disposed: {
+    readonly sessionFile?: string
+    readonly reason?: string
   }
   tools_resolved: {
     readonly requestId: string
