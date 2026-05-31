@@ -244,6 +244,43 @@ test("LocalMyHanakoServer starts a fresh websocket stream for each runtime turn"
   }
 })
 
+test("LocalMyHanakoServer keeps completed stream events resumable until the next stream starts", async () => {
+  const server = new LocalMyHanakoServer({
+    engine: {
+      createSession: async () => ({ sessionId: "unused" }),
+      recoverSession: async () => ({ sessionId: "unused" })
+    }
+  })
+  const address = await server.listen()
+
+  try {
+    const sessionId = "F:\\myhanako\\sessions\\session-resume-after-end.jsonl"
+    server.publish({ type: "session_status", sessionId, isStreaming: true })
+    server.publish({
+      type: "message_update",
+      sessionId,
+      assistantMessageEvent: {
+        type: "text_delta",
+        delta: "hello"
+      }
+    })
+    server.publish({ type: "turn_end", sessionId })
+
+    const resumeResponse = await getJson(`${address.url}/events/resume?sessionId=${encodeURIComponent(sessionId)}&sinceSeq=1`)
+
+    assert.equal(resumeResponse.type, "stream_resume")
+    assert.equal(resumeResponse.sessionPath, sessionId)
+    assert.equal(resumeResponse.isStreaming, false)
+    assert.equal(resumeResponse.events.length, 2)
+    assert.deepEqual(
+      resumeResponse.events.map((entry: { event: { type: string } }) => entry.event.type),
+      ["message_update", "turn_end"]
+    )
+  } finally {
+    await server.close()
+  }
+})
+
 function createFakeSession(sessionFile: string) {
   const listeners = new Set<(event: unknown) => void>()
   return {
