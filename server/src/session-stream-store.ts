@@ -74,7 +74,6 @@ export function appendSessionStreamEvent(state: SessionStreamState, event: unkno
 export function finishSessionStream(state: SessionStreamState): void {
   state.isStreaming = false
   state.endedAt = Date.now()
-  state.events = []
 }
 
 export function resumeSessionStream(
