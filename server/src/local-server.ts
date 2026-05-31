@@ -5,6 +5,7 @@ import { URL } from "node:url"
 import type { SessionEvent, SessionEventFilter } from "../../shared/src/session-events.ts"
 import {
   appendSessionStreamEvent,
+  beginSessionStream,
   createSessionStreamState,
   finishSessionStream,
   resumeSessionStream,
@@ -106,8 +107,12 @@ export class LocalMyHanakoServer {
   #projectStreamEvent(sessionId: string, event: unknown): unknown {
     const state = this.#getStreamState(sessionId)
     const eventType = eventTypeOf(event)
-    if (eventType === "session_status" && boolField(event, "isStreaming") === true) {
-      state.isStreaming = true
+    if (
+      eventType === "session_status" &&
+      boolField(event, "isStreaming") === true &&
+      !state.isStreaming
+    ) {
+      beginSessionStream(state)
     }
 
     const entry = appendSessionStreamEvent(state, event)

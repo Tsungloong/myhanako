@@ -43,6 +43,24 @@ test("normalizeCreateAgentSessionOptions converts agent tools to Pi SDK name all
   assert.equal(normalized.customTools[1], customTool)
 })
 
+test("normalizeCreateAgentSessionOptions preserves resolved Pi SDK tool name allowlists", () => {
+  const runtimeTool = {
+    name: "workspace_read",
+    description: "Read workspace metadata.",
+    parameters: { type: "object" },
+    execute: async () => ({ ok: true })
+  }
+
+  const normalized = normalizeCreateAgentSessionOptions({
+    cwd: "F:\\Codex-Workspace\\myhanako",
+    tools: ["read", "workspace_read"],
+    customTools: [runtimeTool]
+  }, "0.70.2")
+
+  assert.deepEqual(normalized.tools, ["read", "workspace_read"])
+  assert.deepEqual(normalized.customTools, [runtimeTool])
+})
+
 test("normalizeCreateAgentSessionOptions rejects invalid agent tools before session creation", () => {
   assert.throws(
     () => normalizeCreateAgentSessionOptions({

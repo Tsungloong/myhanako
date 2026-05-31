@@ -39,7 +39,7 @@ export type ToolDefinition = {
 }
 
 export type CreateAgentSessionOptions = {
-  readonly tools?: readonly AgentTool[]
+  readonly tools?: readonly (AgentTool | string)[]
   readonly customTools?: readonly ToolDefinition[]
   readonly [key: string]: unknown
 }
@@ -72,6 +72,13 @@ export function getToolDefinitionName(tool: unknown, owner = "createAgentSession
   return candidate.name
 }
 
+export function getToolAllowlistName(tool: unknown, owner = "createAgentSession.tools"): string {
+  if (typeof tool !== "string" || tool.length === 0) {
+    throw new TypeError(`${owner} contains a tool name without a non-empty string value`)
+  }
+  return tool
+}
+
 export function agentToolToToolDefinition(tool: AgentTool): ToolDefinition {
   assertAgentTool(tool)
   return {
@@ -100,14 +107,22 @@ export function normalizeCreateAgentSessionOptions<T extends CreateAgentSessionO
 
   const rawTools = Array.isArray(options.tools) ? options.tools : []
   const rawCustomTools = Array.isArray(options.customTools) ? options.customTools : []
+  const agentTools: AgentTool[] = []
+  const toolAllowlistNames: string[] = []
 
   for (const tool of rawTools) {
-    assertAgentTool(tool)
+    if (typeof tool === "string") {
+      toolAllowlistNames.push(getToolAllowlistName(tool))
+    } else {
+      assertAgentTool(tool)
+      agentTools.push(tool)
+    }
   }
 
-  const convertedBaseTools = rawTools.map(agentToolToToolDefinition)
+  const convertedBaseTools = agentTools.map(agentToolToToolDefinition)
   const allowedNames = uniqueToolNames([
-    ...rawTools.map((tool) => tool.name),
+    ...toolAllowlistNames,
+    ...agentTools.map((tool) => tool.name),
     ...rawCustomTools.map((tool) => getToolDefinitionName(tool))
   ])
 

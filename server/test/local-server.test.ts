@@ -209,6 +209,41 @@ test("LocalMyHanakoServer exposes create/send/interrupt/events/inspector and web
   }
 })
 
+test("LocalMyHanakoServer starts a fresh websocket stream for each runtime turn", async () => {
+  const server = new LocalMyHanakoServer({
+    engine: {
+      createSession: async () => ({ sessionId: "unused" }),
+      recoverSession: async () => ({ sessionId: "unused" })
+    }
+  })
+  const address = await server.listen()
+  const ws = new WebSocket(`${address.wsUrl}/events`)
+
+  try {
+    await waitForWebSocketOpen(ws)
+    const sessionId = "F:\\myhanako\\sessions\\session-streams.jsonl"
+
+    const firstTurnStarted = waitForWebSocketMessage(ws)
+    server.publish({ type: "session_status", sessionId, isStreaming: true })
+    const firstTurn = await firstTurnStarted
+    server.publish({ type: "message_update", sessionId })
+    await waitForWebSocketMessage(ws)
+    server.publish({ type: "session_status", sessionId, isStreaming: false })
+    await waitForWebSocketMessage(ws)
+
+    const secondTurnStarted = waitForWebSocketMessage(ws)
+    server.publish({ type: "session_status", sessionId, isStreaming: true })
+    const secondTurn = await secondTurnStarted
+
+    assert.equal(firstTurn.seq, 1)
+    assert.equal(secondTurn.seq, 1)
+    assert.notEqual(secondTurn.streamId, firstTurn.streamId)
+  } finally {
+    ws.close()
+    await server.close()
+  }
+})
+
 function createFakeSession(sessionFile: string) {
   const listeners = new Set<(event: unknown) => void>()
   return {

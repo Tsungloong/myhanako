@@ -169,9 +169,15 @@ export class SessionCoordinator {
       return
     }
 
+    await this.#releaseActiveSession(active, reason)
+  }
+
+  async #releaseActiveSession(active: ActiveSessionState, reason: string): Promise<void> {
     active.unsubscribe?.()
     await active.session.dispose?.()
-    this.#activeSession = undefined
+    if (this.#activeSession === active) {
+      this.#activeSession = undefined
+    }
     await this.#emitLifecycle("session_disposed", active.sessionId, {
       sessionFile: active.sessionId,
       reason
@@ -307,6 +313,10 @@ export class SessionCoordinator {
       sessionManager: options.sessionManager,
       sessionId,
       unsubscribe
+    }
+    const previous = this.#activeSession
+    if (previous) {
+      await this.#releaseActiveSession(previous, "replace")
     }
     this.#activeSession = state
     return state

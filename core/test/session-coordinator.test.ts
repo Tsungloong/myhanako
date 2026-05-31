@@ -201,6 +201,56 @@ test("SessionCoordinator forwards stream events and cleans up subscriptions on d
   assert.equal(mirrorEvents.at(-1).type, "session_disposed")
 })
 
+test("SessionCoordinator replaces active sessions without leaking previous subscriptions", async () => {
+  const firstSession = createFakeSession("F:\\myhanako\\sessions\\session-first.jsonl")
+  const secondSession = createFakeSession("F:\\myhanako\\sessions\\session-second.jsonl")
+  const eventSinkEvents: unknown[] = []
+  const createAgentSessionCalls: Record<string, unknown>[] = []
+  const coordinator = new SessionCoordinator({
+    createAgentSession: async (options) => {
+      createAgentSessionCalls.push(options)
+      return { session: createAgentSessionCalls.length === 1 ? firstSession : secondSession }
+    },
+    sessionManagers: {
+      create() {
+        const sessionFile = createAgentSessionCalls.length === 0
+          ? "F:\\myhanako\\sessions\\session-first.jsonl"
+          : "F:\\myhanako\\sessions\\session-second.jsonl"
+        return {
+          getSessionFile: () => sessionFile
+        }
+      }
+    },
+    runtime: {
+      authStorage: {},
+      modelRegistry: {},
+      resourceLoader: {}
+    },
+    eventSink: (event) => eventSinkEvents.push(event)
+  })
+
+  await coordinator.createSession({
+    cwd: "F:\\workspace",
+    sessionDir: "F:\\myhanako\\sessions",
+    model: { id: "gpt-4.1", provider: "openai" }
+  })
+  await coordinator.createSession({
+    cwd: "F:\\workspace",
+    sessionDir: "F:\\myhanako\\sessions",
+    model: { id: "gpt-4.1", provider: "openai" }
+  })
+
+  assert.equal(firstSession.disposed, true)
+  firstSession.emit({ type: "message_update", delta: "stale" })
+  secondSession.emit({ type: "message_update", delta: "fresh" })
+
+  assert.equal(
+    eventSinkEvents.filter((event) => event.type === "message_update").length,
+    1
+  )
+  assert.equal(eventSinkEvents.at(-1).delta, "fresh")
+})
+
 test("SessionCoordinator sends user messages through the Pi AgentSession API", async () => {
   const session = createFakeSession("F:\\myhanako\\sessions\\session-send.jsonl")
   session.isStreaming = true
