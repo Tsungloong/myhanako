@@ -1,4 +1,9 @@
 import type { PromptLayerInput } from "./prompt-assembler.ts"
+import type {
+  RuntimeResourceDiagnostic,
+  RuntimeResourceSkill,
+  RuntimeResourceSkillResult
+} from "./runtime-resource-loader.ts"
 
 export type SkillSource = "builtin" | "project" | "user" | "plugin"
 export type SkillStatus = "enabled" | "disabled"
@@ -11,6 +16,10 @@ export type SkillManifest = {
   readonly source: SkillSource
   readonly priority: number
   readonly content: string
+  readonly description?: string
+  readonly filePath?: string
+  readonly baseDir?: string
+  readonly disableModelInvocation?: boolean
   readonly defaultEnabled?: boolean
   readonly editable?: boolean
   readonly tokenBudget?: number
@@ -135,6 +144,40 @@ export class SkillManager {
       commandDefinitions: []
     }
   }
+
+  getSkillsForAgent(input: SkillPromptContextInput = {}): RuntimeResourceSkillResult {
+    return this.resolveRuntimeSkills(input)
+  }
+
+  resolveRuntimeSkills(input: SkillPromptContextInput = {}): RuntimeResourceSkillResult {
+    const promptContext = this.resolvePromptContext(input)
+    const skills: RuntimeResourceSkill[] = []
+    const diagnostics: RuntimeResourceDiagnostic[] = promptContext.warnings.map((message) => ({
+      type: "skill_conflict",
+      message
+    }))
+
+    for (const skillId of promptContext.enabledSkillIds) {
+      const manifest = this.#skills.get(skillId)?.manifest
+      if (!manifest) {
+        continue
+      }
+      if (!manifest.filePath?.trim() || !manifest.baseDir?.trim()) {
+        diagnostics.push({
+          type: "skill_resource_unavailable",
+          skillId,
+          message: `Skill ${skillId} is prompt-only; filePath and baseDir are required for Pi resource sync.`
+        })
+        continue
+      }
+      skills.push(toRuntimeResourceSkill(manifest))
+    }
+
+    return {
+      skills,
+      diagnostics
+    }
+  }
 }
 
 function validateSkillManifest(manifest: SkillManifest): void {
@@ -209,6 +252,21 @@ function toPromptLayer(manifest: SkillManifest): PromptLayerInput {
     tokenBudget: manifest.tokenBudget,
     version: manifest.version,
     content: manifest.content
+  }
+}
+
+function toRuntimeResourceSkill(manifest: SkillManifest): RuntimeResourceSkill {
+  return {
+    name: manifest.name,
+    description: manifest.description?.trim() ? manifest.description : manifest.content,
+    filePath: manifest.filePath ?? "",
+    baseDir: manifest.baseDir ?? "",
+    sourceInfo: {
+      id: manifest.id,
+      source: manifest.source,
+      version: manifest.version
+    },
+    disableModelInvocation: manifest.disableModelInvocation ?? false
   }
 }
 

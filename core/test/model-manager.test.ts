@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
+import path from "node:path"
 import test from "node:test"
-import { BasicModelAdapter, ModelManager } from "../src/model-manager.ts"
+import { BasicModelAdapter, ModelManager, createPiModelBridge } from "../src/model-manager.ts"
 import type { PromptBundle } from "../../shared/src/prompt-bundle.ts"
 
 test("ModelManager resolves P0 roles from availableModels as the single truth source", () => {
@@ -116,6 +117,162 @@ test("ModelManager allows keyless local providers when the provider declares it"
 
   assert.equal(resolved.apiKey, "")
   assert.equal(resolved.baseUrl, "http://127.0.0.1:11434/v1")
+})
+
+test("ModelManager refreshes available models from an injected Pi ModelRegistry", async () => {
+  const registryModel = {
+    id: "gpt-4.1",
+    provider: "openai",
+    capabilities: {
+      input: ["text"],
+      contextWindow: 128000
+    }
+  }
+  const authStorage = { kind: "auth-storage" }
+  const modelRegistry = {
+    async getAvailable() {
+      return [registryModel]
+    }
+  }
+  const manager = new ModelManager({
+    availableModels: [{ id: "old-model", provider: "openai" }],
+    defaultModel: { id: "gpt-4.1", provider: "openai" },
+    piModelBridge: {
+      authStorage,
+      modelRegistry,
+      authJsonPath: "F:\\myhanako\\auth.json",
+      modelsJsonPath: "F:\\myhanako\\models.json"
+    }
+  })
+
+  const refreshed = await manager.refreshAvailableModelsFromRegistry()
+
+  assert.equal(manager.authStorage, authStorage)
+  assert.equal(manager.modelRegistry, modelRegistry)
+  assert.equal(manager.authJsonPath, "F:\\myhanako\\auth.json")
+  assert.equal(manager.modelsJsonPath, "F:\\myhanako\\models.json")
+  assert.deepEqual(refreshed, [registryModel])
+  assert.equal(manager.resolveExecutionModel("openai/gpt-4.1"), registryModel)
+  assert.equal(manager.defaultModel, registryModel)
+})
+
+test("ModelManager reports Pi registry credential status without exposing secrets", async () => {
+  const model = { id: "gpt-4.1", provider: "openai" }
+  const manager = new ModelManager({
+    availableModels: [model],
+    defaultModel: model,
+    piModelBridge: {
+      authStorage: { kind: "auth-storage" },
+      modelRegistry: {
+        async getAvailable() {
+          return [model]
+        },
+        async getApiKeyAndHeaders(receivedModel: unknown) {
+          assert.equal(receivedModel, model)
+          return {
+            ok: true,
+            apiKey: "sk-secret",
+            headers: {
+              "x-provider-token": "hidden"
+            }
+          }
+        }
+      }
+    }
+  })
+
+  assert.deepEqual(await manager.resolveModelCredentialStatus("openai/gpt-4.1"), {
+    provider: "openai",
+    modelId: "gpt-4.1",
+    ok: true,
+    hasApiKey: true,
+    hasHeaders: true
+  })
+})
+
+test("ModelManager rejects Pi registry models that are missing provider identity", async () => {
+  const manager = new ModelManager({
+    availableModels: [],
+    piModelBridge: {
+      authStorage: {},
+      modelRegistry: {
+        async getAvailable() {
+          return [{ id: "gpt-4.1", provider: "" }]
+        }
+      }
+    }
+  })
+
+  await assert.rejects(
+    () => manager.refreshAvailableModelsFromRegistry(),
+    /missing id or provider/
+  )
+})
+
+test("ModelManager reports missing Pi registry credentials as an explicit status", async () => {
+  const model = { id: "gpt-4.1", provider: "openai" }
+  const manager = new ModelManager({
+    availableModels: [model],
+    defaultModel: model,
+    piModelBridge: {
+      authStorage: {},
+      modelRegistry: {
+        async getAvailable() {
+          return [model]
+        },
+        async getApiKeyAndHeaders() {
+          return {
+            ok: false,
+            error: "No API key configured"
+          }
+        }
+      }
+    }
+  })
+
+  assert.deepEqual(await manager.resolveModelCredentialStatus("openai/gpt-4.1"), {
+    provider: "openai",
+    modelId: "gpt-4.1",
+    ok: false,
+    reason: "No API key configured",
+    hasApiKey: false,
+    hasHeaders: false
+  })
+})
+
+test("createPiModelBridge creates AuthStorage and ModelRegistry under the myhanako home", async () => {
+  const authStorage = { kind: "auth-storage" }
+  const modelRegistry = {
+    async getAvailable() {
+      return []
+    }
+  }
+  const calls: string[] = []
+  const bridge = await createPiModelBridge({
+    myhanakoHome: "F:\\myhanako",
+    piSdk: {
+      AuthStorage: {
+        create(authJsonPath: string) {
+          calls.push(authJsonPath)
+          return authStorage
+        }
+      },
+      createModelRegistry(receivedAuthStorage: unknown, modelsJsonPath: string) {
+        assert.equal(receivedAuthStorage, authStorage)
+        calls.push(modelsJsonPath)
+        return modelRegistry
+      }
+    }
+  })
+
+  assert.equal(bridge.authStorage, authStorage)
+  assert.equal(bridge.modelRegistry, modelRegistry)
+  assert.equal(bridge.authJsonPath, path.join("F:\\myhanako", "auth.json"))
+  assert.equal(bridge.modelsJsonPath, path.join("F:\\myhanako", "models.json"))
+  assert.deepEqual(calls, [
+    path.join("F:\\myhanako", "auth.json"),
+    path.join("F:\\myhanako", "models.json")
+  ])
 })
 
 test("BasicModelAdapter prepares an auditable provider-neutral request", () => {

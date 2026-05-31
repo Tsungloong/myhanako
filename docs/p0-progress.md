@@ -10,6 +10,8 @@
 
 ## 已实现
 
+以下 P0/M1-M5 是早期 clean-room 骨架进度。它们继续保留为 contract、mirror、projection、snapshot 和增强层，但不再作为 runtime 主线；当前 runtime 主线以 `docs/design.md` 的 OpenHanako-first P0 为准。
+
 ### P0/M1：协议与事件
 
 - `shared/src/session-events.ts`
@@ -87,12 +89,150 @@
   - `core/src/diff-service.ts` 新增 `DiffService.renderDiffModel`，把 `PatchModel` 渲染为 UI-neutral `DiffModel`，包含语言、checksum、hunks、old/new 行号和 context/delete/insert 行。
   - 先稳定 core 事实链路；FileDiffCard 展示和 badlogic/pi-diff-review 式命令后续作为 UI/plugin/command 层扩展，不放进 P0 当前实现。
 
+## OpenHanako-first 校准进度
+
+### M0：OpenHanako compatibility audit
+
+- `docs/design.md`
+  - 已明确 OpenHanako-first 是 P0 runtime 主线。
+  - 已把 myhanako 现有模块重新定位为 contract、mirror、projection、snapshot 和增强层。
+- `docs/openhanako-compat-audit.md`
+  - 已审计本地 `F:\openhanako-main` 的 `lib/pi-sdk`、`core/engine.js`、`core/session-coordinator.js`、`core/model-manager.js`、`core/plugin-manager.js`、`core/skill-manager.js` 和 `PLUGINS.md`。
+  - 结论是复用调用顺序和边界，以 TypeScript 薄适配落地，不直接搬运 OpenHanako ESM JavaScript 文件。
+
+### M1：Pi SDK dependency and adapter
+
+- `package.json`
+  - 已加入 `@mariozechner/pi-ai@0.70.5` 和 `@mariozechner/pi-coding-agent@0.70.2`，与本地 OpenHanako 版本边界一致。
+  - 已加入 `test:pi-adapter`。
+- `lib/pi-sdk/index.ts`
+  - 已提供 Pi SDK import 统一入口。
+  - `createAgentSession()` 会先规整 options，再安装 stream guard。
+  - 已导出 `SessionManager`、`SettingsManager`、`DefaultResourceLoader`、`AuthStorage`、`ModelRegistry` 和 `createModelRegistry()`。
+- `lib/pi-sdk/session-options.ts`
+  - 已实现 Pi built-in tool name allowlist。
+  - 已实现 `tools` 到 name allowlist、`customTools` 合并和无效工具提前失败。
+- `lib/pi-sdk/stream-guard.ts`
+  - 已建立稳定入口；当前只做幂等安装标记，完整异常事件恢复留到后续 stream projection hardening。
+- `lib/test/pi-sdk-adapter.test.ts`
+  - 覆盖 built-in tool names、normalization 和错误工具提前失败。
+- `lib/test/pi-sdk-import.test.ts`
+  - 覆盖稳定 adapter boundary 的真实 dependency import。
+- `lib/test/pi-sdk-session-smoke.test.ts`
+  - 覆盖不依赖全局 `pi` CLI 的真实 Pi SDK session create/subscribe/dispose smoke。
+- `lib/test/import-discipline.test.ts`
+  - 验证生产 TypeScript 代码不直接 import `@mariozechner/pi-*`。
+
+### M2：Model and auth bridge
+
+- `core/src/model-manager.ts`
+  - 新增 `createPiModelBridge()`，从 `myhanakoHome` 派生 `auth.json` / `models.json`，并通过 Pi SDK factory 创建 `AuthStorage` 与 `ModelRegistry` bridge。
+  - `ModelManager` 可接收注入的 Pi `AuthStorage` / `ModelRegistry`，避免自建第二套 provider runtime。
+  - 新增 `refreshAvailableModelsFromRegistry()`，以 Pi registry 刷新的模型列表作为 `availableModels`，并把默认模型 rebind 到刷新后的模型对象。
+  - 新增 `resolveModelCredentialStatus()`，通过 Pi registry 查询凭证状态，只返回 `ok`、`reason`、`hasApiKey`、`hasHeaders`，不向上层暴露 secret。
+- `core/test/model-manager.test.ts`
+  - 覆盖 Pi registry 模型刷新、默认模型 rebind、registry 模型 identity 校验、凭证状态脱敏和 bridge 工厂路径。
+
+### M3：Engine and SessionCoordinator
+
+- `core/src/session-coordinator.ts`
+  - 新增最小 OpenHanako-style session lifecycle bridge。
+  - `createSession()` 通过注入或默认 `lib/pi-sdk.createAgentSession()` 创建 session，并在新建 session 时传入 explicit model。
+  - `recoverSession()` 使用 session manager open/fallback create，但不把 model 传给 `createAgentSession()`，保留 Pi SDK 从 session JSONL 恢复模型的语义。
+  - 订阅 session stream events，转发到 event sink，并把 `session_created`、`session_recovered`、`session_disposed` 镜像到 `SessionEventLog`。
+  - `disposeCurrentSession()` 会清理 subscription 并调用 session dispose。
+- `core/src/engine.ts`
+  - 新增最小 thin facade，只委托 `SessionCoordinator`，不持有第二套 runtime truth。
+- `core/test/session-coordinator.test.ts`
+  - 覆盖 create 传 model、recover 不传 model、stream event 转发和 dispose 清理。
+- `core/test/engine.test.ts`
+  - 覆盖 `Engine` 只作为 session lifecycle facade。
+
+### M4：RuntimeResourceLoader 起步
+
+- `core/src/runtime-resource-loader.ts`
+  - 新增最小 `RuntimeResourceLoader`，负责构造 Pi `DefaultResourceLoader`、调用 `reload()`，并输出 session runtime 需要的 `resourceLoader`、`tools` 和 `customTools` snapshot。
+  - 支持注入 `settingsManager`、`eventBus`、`extensionFactories`、`additionalExtensionPaths`、`additionalSkillPaths` 和 Pi-compatible skills。
+  - 通过 `skillsOverride` 把 runtime skill contribution 与 diagnostics 合并进 `DefaultResourceLoader.getSkills()` 结果。
+  - `toSessionRuntime()` 在 `reload()` 完成前会明确失败，避免 session 使用半初始化资源。
+  - `toTransparencySnapshot()` 输出 reload 后的 tool/command/plugin/skill/path/diagnostic 快照，供 prompt/tool inspector 和后续 projection 使用。
+- `core/src/runtime-contributions.ts`
+  - 新增首版 contribution resolver，把 `ToolRegistry` definition snapshot 转成 Pi `customTools` wrapper，并输出 Pi SDK 0.68+ 需要的 `tools` name allowlist。
+  - `CommandRegistry` 只输出 command snapshot，不暴露为 LLM-callable tool。
+  - full-access plugin 的 `extensions` 声明会转成 `extensionPaths`，通过 `RuntimeResourceLoader` 的受控入口交给 `DefaultResourceLoader`。
+  - `ToolDefinitionSnapshot.parameters` 可把真实 JSON schema 传给 Pi `customTools.parameters`；缺省时首版 wrapper 使用显式 JSON object fallback 参数 schema。完整权限包装留在 M4 后续。
+  - Pi custom tool wrapper 会从调用上下文读取 `executionSubject` / `subject`，并透传给 `ToolRegistry` / `ExecutionBoundary` 做 per-call 权限判定。
+- `shared/src/session-events.ts`
+  - `ToolDefinitionSnapshot` 新增可选 `parameters`，用于记录 resolved tool 的真实参数 schema，同时保留 `schemaChecksum` 作为透明化和变更追踪字段。
+- `core/src/skill-manager.ts`
+  - 新增 `getSkillsForAgent()` / `resolveRuntimeSkills()`，对齐 OpenHanako 的 resource loader sync 入口。
+  - 文件型 enabled skill 会输出 Pi-compatible resource skill；纯 prompt skill 不会伪装成文件型 skill，而是通过 diagnostics 标记缺少 `filePath` / `baseDir`。
+- `core/src/session-runtime-resolver.ts`
+  - 新增 session 创建前 runtime resolver：解析当前 tool/command/plugin/skill contributions，reload `RuntimeResourceLoader`，再把 `resourceLoader`、`tools` 和 `customTools` 交给 `SessionCoordinator`。
+  - `SessionCoordinator` 支持静态 runtime 或异步 runtime provider，确保 session 创建时使用最新 resource snapshot。
+- `core/test/runtime-resource-loader.test.ts`
+  - 覆盖 `DefaultResourceLoader` 初始化参数、reload 调用、skills merge、session resource snapshot 和输入数组防外部突变。
+- `core/test/runtime-contributions.test.ts`
+  - 覆盖 registry tool -> Pi custom tool、slash command 不暴露为工具、full-access plugin extension path 和 ResourceLoader path/factory 传递。
+- `core/test/session-runtime-resolver.test.ts`
+  - 覆盖 resolver 在 session 创建前解析当前 contributions、reload resource loader，并输出 `SessionCoordinator` runtime。
+- `core/test/session-coordinator.test.ts`
+  - 补充 async runtime provider 覆盖，证明 `SessionCoordinator` 在调用 `createAgentSession()` 前解析 runtime。
+- `core/test/skill-manager.test.ts`
+  - 补充文件型 skill resource sync 覆盖，证明 prompt-only skill 不会进入 Pi resource loader。
+- `package.json`
+  - `npm test` 已纳入 `core/test/runtime-resource-loader.test.ts`、`core/test/runtime-contributions.test.ts` 和 `core/test/session-runtime-resolver.test.ts`。
+
+### M5：Projection and transparency
+
+- `core/src/session-stream-mirror.ts`
+  - 新增 Pi/OpenHanako stream -> `SessionEventLog` mirror。
+  - 覆盖 assistant text delta、assistant completion、tool requested/started/completed/failed 和 user message mirror。
+  - mirror 按 session 串行写入，避免 delta/end 并发导致事件顺序错乱。
+  - 默认 request/message id 已改为 per-session turn 序号，避免 tool-only turn 覆盖上一条 assistant transcript。
+- `core/src/session-coordinator.ts`
+  - `sendMessage()` 优先调用 Pi `AgentSession.sendUserMessage()`；streaming 状态下使用 `deliverAs: "followUp"`。
+  - `interruptCurrentSession()` 调用 Pi `abort()`，并写入 `assistant_interrupted` mirror。
+  - stream event 只转发和镜像，不让 event log 反向驱动 Pi session。
+- `core/src/session-inspector.ts`
+  - 新增 session inspector snapshot，默认从 event log 投影 transcript、FileDiffCard、TerminalCard、prompt layers、resolved tools、model requests 和 memory timeline。
+  - `runtimeSnapshot` 仍只作为透明化补充，不成为 runtime truth。
+- `shared/src/session-projection.ts`
+  - transcript 投影过滤无内容且未完成的 assistant 占位流，避免 tool-only turn 在对话里显示为空消息。
+
+### M6：Minimal server smoke
+
+- `server/src/local-server.ts`
+  - 新增最小本地 HTTP/WS server。
+  - HTTP API 覆盖 `GET /health`、`GET /models`、`GET /events`、`GET /events/resume`、`GET /inspector`、`POST /sessions/create`、`POST /sessions/open`、`POST /sessions/send` 和 `POST /sessions/interrupt`。
+  - WebSocket `/events` 负责 OpenHanako-style event projection，给事件补 `sessionPath`、`streamId` 和 `seq`。
+- `server/src/session-stream-store.ts`
+  - 参考 OpenHanako `session-stream-store.js`，实现 per-session stream state、ring buffer、resume、reset 和 truncated 标记。
+  - server 只做投影和恢复语义，不保存第二套 session truth。
+
+### M7：File, diff, terminal enhancement bridge and product smoke
+
+- `core/src/enhancement-projection.ts`
+  - 新增 FileDiffCard projection：`file_patch_proposed` / `file_write_committed` 投影为 proposed/committed card。
+  - 新增 TerminalCard projection：OpenHanako-style `terminal_started`、`terminal_output`、`terminal_exited` 归一化为 terminal process events。
+  - 终端输出保留 `rawText`，同时去 ANSI、CRLF/CR -> LF，并记录 `ansiMetadata.hadAnsi`。
+- `server/test/local-server.test.ts`
+  - 升级为完整 P0/M7 smoke：同一个本地 server 实例覆盖 session create、send、stream resume、assistant stream mirror、tool lifecycle、file patch/commit、terminal output、memory compile/inject、prompt/tool/model transparency、inspector projection、interrupt。
+  - 该 smoke 捕获并推动修复了 tool-only turn 覆盖 assistant transcript 的投影问题。
+
 ## 验证命令
 
 ```powershell
+npm run test:pi-adapter
 npm test
 git diff --check
 ```
+
+最近验证结果：
+
+- `npm run test:pi-adapter`：6/6 pass。
+- `npm test`：87/87 pass。
+- `git diff --check`：无 whitespace error；当前只提示 `docs/p0-progress.md` 和 `shared/src/session-events.ts` 下次 Git touch 时会从 CRLF 转 LF。
 
 ## 远程维护状态
 
@@ -102,7 +242,7 @@ git diff --check
 
 ## 下一步
 
-- 继续 P0/M5：将 `DiffModel` 接入后续 API/UI 投影或进入 `TerminalService` 事件化；memory 后续按产品需要补来源事件读取投影、压缩和冲突处理。
+- P0 已具备 M7 的最小完整系统验证基线；下一步进入阶段性代码审查、提交和 PR 维护，然后再展开桌面层或更完整 OpenHanako WS client command 兼容。
 
 ## 参考标注
 

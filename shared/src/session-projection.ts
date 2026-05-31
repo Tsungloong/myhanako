@@ -81,13 +81,19 @@ export function projectSessionTranscript(events: readonly SessionEvent[]): reado
     }
   }
 
-  return [...messages.values()].map((message) => ({
-    messageId: message.messageId,
-    role: message.role,
-    content: message.content,
-    eventIds: [...message.eventIds],
-    startedAt: message.startedAt,
-    completedAt: message.completedAt,
-    recalled: message.recalled
-  }))
+  return [...messages.values()]
+    .filter((message) => (
+      message.role !== "assistant" ||
+      message.content.length > 0 ||
+      message.completedAt !== undefined
+    ))
+    .map((message) => ({
+      messageId: message.messageId,
+      role: message.role,
+      content: message.content,
+      eventIds: [...message.eventIds],
+      startedAt: message.startedAt,
+      completedAt: message.completedAt,
+      recalled: message.recalled
+    }))
 }

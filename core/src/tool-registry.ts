@@ -50,6 +50,7 @@ export class ToolRegistry {
 
     this.#tools.set(tool.id, {
       ...tool,
+      ...(tool.parameters ? { parameters: cloneJsonObject(tool.parameters) } : {}),
       permissions: [...tool.permissions]
     })
   }
@@ -96,7 +97,7 @@ function toToolDefinition(
   tool: ToolRegistration,
   override?: ToolDescriptionOverride
 ): ToolDefinitionSnapshot {
-  return {
+  const definition: ToolDefinitionSnapshot = {
     id: tool.id,
     name: tool.name,
     source: tool.source,
@@ -104,4 +105,15 @@ function toToolDefinition(
     schemaChecksum: tool.schemaChecksum,
     permissions: [...tool.permissions]
   }
+  if (tool.parameters) {
+    return {
+      ...definition,
+      parameters: cloneJsonObject(tool.parameters)
+    }
+  }
+  return definition
+}
+
+function cloneJsonObject(value: JsonObject): JsonObject {
+  return JSON.parse(JSON.stringify(value)) as JsonObject
 }

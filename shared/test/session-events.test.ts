@@ -15,6 +15,9 @@ test("session event contract includes the P0 audited fact-source events", () => 
   assert.ok(SESSION_EVENT_TYPES.includes("terminal_output_received"))
   assert.ok(SESSION_EVENT_TYPES.includes("message_recalled"))
   assert.ok(SESSION_EVENT_TYPES.includes("plugin_loaded"))
+  assert.ok(SESSION_EVENT_TYPES.includes("session_created"))
+  assert.ok(SESSION_EVENT_TYPES.includes("session_recovered"))
+  assert.ok(SESSION_EVENT_TYPES.includes("session_disposed"))
   assert.equal(isSessionEventType("unknown_event"), false)
 })
 

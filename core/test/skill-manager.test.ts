@@ -135,3 +135,57 @@ test("SkillManager keeps the highest-priority skill when enabled skills conflict
     ["skill:strict_review"]
   )
 })
+
+test("SkillManager exposes file-backed enabled skills for runtime resource loading", () => {
+  const manager = new SkillManager()
+  manager.loadSkill({
+    id: "workspace_skill",
+    name: "Workspace Skill",
+    version: "1",
+    source: "project",
+    priority: 20,
+    defaultEnabled: true,
+    editable: false,
+    content: "Use the workspace skill file.",
+    description: "Workspace guidance.",
+    filePath: "F:\\workspace\\.agents\\skills\\workspace\\SKILL.md",
+    baseDir: "F:\\workspace\\.agents\\skills\\workspace",
+    disableModelInvocation: true
+  })
+  manager.loadSkill({
+    id: "prompt_only",
+    name: "Prompt Only",
+    version: "1",
+    source: "user",
+    priority: 30,
+    defaultEnabled: true,
+    editable: true,
+    content: "This skill only exists as a prompt layer."
+  })
+
+  const result = manager.getSkillsForAgent({
+    projectId: "myhanako"
+  })
+
+  assert.deepEqual(result.skills, [
+    {
+      name: "Workspace Skill",
+      description: "Workspace guidance.",
+      filePath: "F:\\workspace\\.agents\\skills\\workspace\\SKILL.md",
+      baseDir: "F:\\workspace\\.agents\\skills\\workspace",
+      sourceInfo: {
+        id: "workspace_skill",
+        source: "project",
+        version: "1"
+      },
+      disableModelInvocation: true
+    }
+  ])
+  assert.deepEqual(result.diagnostics, [
+    {
+      type: "skill_resource_unavailable",
+      skillId: "prompt_only",
+      message: "Skill prompt_only is prompt-only; filePath and baseDir are required for Pi resource sync."
+    }
+  ])
+})
