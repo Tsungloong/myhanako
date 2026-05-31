@@ -81,6 +81,16 @@ npm test
 - 每条功能分支优先建立 draft PR 作为维护入口；如果本机认证或 GitHub App 权限阻塞，应在开发记录中说明。
 - 实施状态记录可以写入 `docs/p0-progress.md`，但不能替代 `docs/design.md` 的架构基准地位。
 
+## 4.2 GitHub / 远程维护故障处理
+
+当前 Codex 桌面会话中，GitHub 连接器、`gh` CLI 和 Git transport 可能分别受到权限、审批超时或网络限制影响。遇到远程分支、PR metadata、push、fetch 或 PR edit 阻塞时，按以下顺序处理：
+
+1. 先执行只读本地检查，确认当前分支、工作树、最近提交和远端配置。
+2. 如果常规指令不可用，直接换已知可用路径，例如 GitHub 连接器、`gh` CLI 或带 GitHub CLI credential helper 的 HTTPS Git。
+3. 需要权限时立即请求用户提权，不反复尝试同一条失败命令。
+4. 如果连接器、`gh` CLI 和 Git transport 都不可用，停止自动重试，汇报失败点、当前仓库状态和用户可手动执行的 Git/GitHub 命令路径。
+5. 不为了绕过权限限制而改用不透明脚本、删除本地状态、force push、reset 或 stash 用户变更。
+
 ## 5. GitHub 仓库设置
 
 目标远程仓库：

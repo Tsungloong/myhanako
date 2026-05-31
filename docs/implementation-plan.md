@@ -193,10 +193,14 @@ P0 剩余主要缺口是：
 
 ## 4. 首批实施顺序
 
-M0/M1/M2/M3 已经完成，M4 ResourceLoader、首版 contribution resolver、tool parameter schema passthrough、SkillManager resource sync、resolved transparency snapshot、per-call execution subject 权限透传和 session 创建前 runtime wiring 已落地；从当前状态继续时按以下顺序执行：
+M0/M1/M2/M3 已经完成，M4 ResourceLoader、首版 contribution resolver、tool parameter schema passthrough、SkillManager resource sync、resolved transparency snapshot、per-call execution subject 权限透传和 session 创建前 runtime wiring 已落地；M5 stream mirror / inspector、M6 local server smoke 和 M7 file/diff/terminal enhancement projection 也已形成最小完整系统验证基线。
 
-1. 运行 `npm run test:pi-adapter`、`npm test` 和 `git diff --check`，确认 M1-M3 闸门仍然通过。
-2. 接 projection、server、file/diff/terminal 增强。
+P0 收尾后继续时按以下顺序执行：
+
+1. 运行 `npm run test:pi-adapter`、`npm test` 和 `git diff --check main...HEAD`，确认 P0 基线仍然通过。
+2. 进入 P1 Hanako-style desktop / server client 消费层设计。
+3. 在 P1 涉及真实 send projection 时，补齐 `/sessions/send` 到 websocket stream begin、`session_user_message` 和 resume 的真实链路测试。
+4. 在 P1/P2 涉及 command UI 或 slash command palette 时，处理 command alias snapshot 与 lookup 冲突的行为。
 
 ## 5. 验证策略
 
@@ -231,4 +235,4 @@ npm run test:pi-adapter
 
 ## 6. 当前下一步
 
-下一次代码实施进入 projection/server 接入：用 TDD 建立最小 session create/event/inspector API 和 websocket projection；随后接 file/diff/terminal 增强。任何需要安装依赖、访问网络、写 `.git` 或推送远端的操作，都先请求提权。
+下一次代码实施进入 P1：以现有 P0 local server / websocket / inspector / event mirror 为基础，设计并实现 Hanako-style desktop 或 server client 消费层。任何需要安装依赖、访问网络、写 `.git`、推送远端或更新 PR metadata 的操作，都先请求提权；如果提权路径不可用，按 [engineering-workflow.md](engineering-workflow.md) 的 GitHub / 远程维护故障处理规则切换路径或汇报人工操作步骤。

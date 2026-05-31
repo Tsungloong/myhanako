@@ -230,19 +230,29 @@ git diff --check
 
 最近验证结果：
 
-- `npm run test:pi-adapter`：6/6 pass。
-- `npm test`：87/87 pass。
-- `git diff --check`：无 whitespace error；当前只提示 `docs/p0-progress.md` 和 `shared/src/session-events.ts` 下次 Git touch 时会从 CRLF 转 LF。
+- 2026-06-01 `npm run test:pi-adapter`：7/7 pass。
+- 2026-06-01 `npm test`：91/91 pass。
+- 2026-06-01 `git diff --check main...HEAD`：无 whitespace error。
 
 ## 远程维护状态
 
 - 已推送远程分支：`feat/p0-event-log`
 - PR：https://github.com/Tsungloong/myhanako/pull/3
-- GitHub 连接器写 PR metadata 仍返回 `Resource not accessible by integration`；当前判断为 GitHub metadata scope 只读限制，`Pull requests: Read and write` 已确认勾选。该问题标注为悬置，等项目落地后统一处理；当前 PR 描述更新通过提权后的本机 `gh` CLI 完成。
+- GitHub 连接器写 PR metadata 仍返回 `Resource not accessible by integration`；当前判断为 GitHub metadata scope 只读限制，`Pull requests: Read and write` 已确认勾选。
+- 远程 Git / PR 维护在本地会话中反复遇到权限或审批超时。后续规则固定为：如果常规指令不可用，直接换已知可用路径；需要权限时立即请求用户提权；如果连接器、`gh` CLI 和 Git transport 都不可用，停止重试并汇报可行行动路径，由用户手动执行 Git/GitHub 操作。
+
+## 阶段性审查记录
+
+2026-06-01 代码审查 / PR 维护结论：
+
+- PR #3 状态：open、非 draft、mergeable；无评论、无 review、无 unresolved review threads；GitHub 对当前 head 未返回 commit status/check 记录。
+- P0 收尾状态：P0/M7 最小完整系统验证基线已具备，可以作为进入 P1 设计和桌面层开发的基础。
+- 延后项 P1：实际 `/sessions/send` 链路目前由 `SessionCoordinator.sendMessage()` 写入 `user_message_created` 并调用 Pi `AgentSession.sendUserMessage()`，但没有在该入口主动向 server projection 发出 OpenHanako-style `session_status.isStreaming=true` / `session_user_message`。当前 P0 server smoke 通过手动 `server.publish()` 覆盖 stream projection；后续进入完整桌面/server/client 架构时，需要在真实 send 链路中统一补齐用户消息、stream begin、resume 语义和测试。
+- 延后项 P2：`CommandRegistry` 遇到 alias 冲突时，冲突 alias 不会安装到 lookup 表，但仍可能留在 command snapshot 中。当前 P0 不依赖完整 command UI；后续做更完整 slash command / desktop command palette 时，需要改成拒绝冲突 alias 或从 snapshot 中剔除，并补回归测试。
 
 ## 下一步
 
-- P0 已具备 M7 的最小完整系统验证基线；下一步进入阶段性代码审查、提交和 PR 维护，然后再展开桌面层或更完整 OpenHanako WS client command 兼容。
+- P0 已具备 M7 的最小完整系统验证基线；P1 阶段优先展开 Hanako-style desktop / server client 消费层，并在涉及真实 send projection 或 command UI 时处理上述延后项。
 
 ## 参考标注
 
