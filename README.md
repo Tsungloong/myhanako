@@ -32,4 +32,13 @@
 
 ## 开发状态
 
-当前阶段是 P1 参考基线和实施计划阶段，尚未进入 P1 核心代码实现。后续代码实现应从 Hana full-access plugin shell、adapter capability discovery、evidence envelope、append-only evidence log 和 plugin lab diagnostics 开始。
+`main` 已包含 P0/M2 PromptBundle 与 PromptAssembler 骨架：shared event contract、append-only `SessionEventLog`、PromptBundle 契约、PromptAssembler 层装配和 prompt/memory/tools/model 请求事件写入测试。
+
+接下来工程重心转向 P1。后续代码实现应从 Hana full-access plugin shell、adapter capability discovery、evidence envelope、append-only evidence log 和 plugin lab diagnostics 开始。
+
+本地验证命令：
+
+```powershell
+npm test
+git diff --check
+```
