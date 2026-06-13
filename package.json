@@ -5,11 +5,17 @@
   "type": "module",
   "description": "PiAgent-native architecture experiments for myhanako.",
   "scripts": {
-    "test": "node --test shared/test/session-events.test.ts shared/test/prompt-bundle.test.ts core/test/session-event-log.test.ts core/test/prompt-assembler.test.ts",
+    "test": "node --test shared/test/session-events.test.ts shared/test/prompt-bundle.test.ts core/test/session-event-log.test.ts core/test/prompt-assembler.test.ts tests/evidence.test.ts tests/redaction.test.ts tests/hana-adapter-contract.test.ts tests/server-api.test.ts tests/plugin-lab.test.ts tests/plugin-lab-actions.test.ts tests/workflow-adjustments.test.ts tests/evidence-bundle.test.ts tests/workflow-review.test.ts tests/ui-shell.test.ts tests/mvp-smoke.test.ts tests/p1-diagnostics-loop.test.ts",
     "test:events": "node --test shared/test/session-events.test.ts core/test/session-event-log.test.ts",
-    "check": "npm test"
+    "check": "npm test",
+    "smoke:p1-mvp": "node scripts/p1-mvp-smoke.mjs",
+    "typecheck": "tsc --noEmit"
   },
   "engines": {
     "node": ">=24.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.1",
+    "typescript": "^6.0.3"
   }
 }

@@ -1,0 +1,15 @@
+{
+  "manifestVersion": 1,
+  "id": "myhanako",
+  "name": "myhanako",
+  "version": "0.1.0",
+  "description": "Workflow Review and Plugin Lab companion for HanaAgent.",
+  "trust": "full-access",
+  "activationEvents": ["onStartup"],
+  "contributes": {
+    "page": {
+      "title": "myhanako",
+      "route": "/status"
+    }
+  }
+}

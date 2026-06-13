@@ -23,6 +23,7 @@ coverage/
 .turbo/
 .next/
 .vite/
+.artifacts/
 
 # Python
 __pycache__/

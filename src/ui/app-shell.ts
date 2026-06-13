@@ -1,0 +1,181 @@
+export type MyhanakoUiMode = "standalone" | "embedded"
+
+export type MyhanakoBootstrap = {
+  readonly pluginId: string
+  readonly apiBase: string
+  readonly sidecarBase: string
+  readonly version: string
+  readonly generatedAt: string
+  readonly defaultSessionId?: string
+}
+
+export type RenderMyhanakoAppShellInput = {
+  readonly mode: MyhanakoUiMode
+  readonly bootstrap: MyhanakoBootstrap
+}
+
+export function createMyhanakoBootstrap(
+  input: {
+    readonly pluginId: string
+    readonly apiBase: string
+    readonly version: string
+    readonly sidecarBase?: string
+    readonly defaultSessionId?: string
+    readonly generatedAt?: string
+  }
+): MyhanakoBootstrap {
+  return {
+    pluginId: input.pluginId,
+    apiBase: input.apiBase,
+    sidecarBase: input.sidecarBase ?? "http://127.0.0.1:14501",
+    version: input.version,
+    generatedAt: input.generatedAt ?? new Date().toISOString(),
+    ...(input.defaultSessionId ? { defaultSessionId: input.defaultSessionId } : {})
+  }
+}
+
+export function renderMyhanakoAppShell(input: RenderMyhanakoAppShellInput): string {
+  const assetsBase = input.mode === "embedded"
+    ? `${input.bootstrap.apiBase}/assets`
+    : "."
+
+  return `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>myhanako 插件实验室</title>
+  <link rel="stylesheet" href="${escapeHtml(`${assetsBase}/myhanako-app.css`)}">
+</head>
+<body class="hana-plugin-theme" data-myhanako-app data-mode="${escapeHtml(input.mode)}">
+  <script id="myhanako-bootstrap" type="application/json">${escapeScriptJson(input.bootstrap)}</script>
+  <main class="app-shell">
+    <header class="topbar" aria-label="myhanako 工作台">
+      <div>
+        <p class="eyebrow">myhanako / P1 MVP</p>
+        <h1>工作流复盘 · 插件实验室</h1>
+      </div>
+      <div class="status-strip" aria-live="polite">
+        <span class="status-dot" data-status-dot></span>
+        <span data-status-text>${input.mode === "embedded" ? "Hana 内嵌" : "独立预览"}</span>
+      </div>
+    </header>
+
+    <nav class="tabs" aria-label="MVP 视图">
+      <button class="tab-button is-active" type="button" data-tab-target="workflow">工作流复盘</button>
+      <button class="tab-button" type="button" data-tab-target="lab">插件实验室</button>
+      <button class="tab-button" type="button" data-tab-target="export">证据导出</button>
+    </nav>
+
+    <section class="control-band" aria-label="运行参数">
+      <label>
+        <span>会话</span>
+        <input class="hana-plugin-input" id="session-id" value="${escapeHtml(input.bootstrap.defaultSessionId ?? "demo-session")}" autocomplete="off">
+      </label>
+      <label>
+        <span>插件</span>
+        <input class="hana-plugin-input" id="plugin-id" value="${escapeHtml(input.bootstrap.pluginId)}" autocomplete="off">
+      </label>
+      <label class="toggle-line">
+        <input id="lab-mode" type="checkbox">
+        <span>实验模式</span>
+      </label>
+    </section>
+
+    <section class="panel is-active" data-panel="workflow" aria-labelledby="workflow-title">
+      <div class="panel-header">
+        <div>
+          <h2 id="workflow-title">工作流复盘</h2>
+          <p>按会话读取 goal、steps、工具/插件、上下文、不确定点和调整建议。</p>
+        </div>
+        <button class="hana-plugin-button hana-plugin-button-primary hana-plugin-button-md" type="button" data-action="load-review">载入复盘</button>
+      </div>
+      <div class="review-grid" data-review-grid>
+        <section class="summary-block">
+          <h3>目标</h3>
+          <p class="state-empty">尚未选择工作流证据</p>
+        </section>
+        <section class="summary-block">
+          <h3>步骤</h3>
+          <ul data-review-list="stepsAttempted"></ul>
+        </section>
+        <section class="summary-block">
+          <h3>工具与插件</h3>
+          <ul data-review-list="toolsAndPluginsUsed"></ul>
+        </section>
+        <section class="summary-block">
+          <h3>上下文</h3>
+          <ul data-review-list="contextUsed"></ul>
+        </section>
+        <section class="summary-block">
+          <h3>不确定点</h3>
+          <ul data-review-list="uncertaintyPoints"></ul>
+        </section>
+        <section class="summary-block">
+          <h3>调整建议</h3>
+          <ul data-review-list="suggestedAdjustments"></ul>
+        </section>
+      </div>
+      <pre class="output" data-output="workflow"></pre>
+    </section>
+
+    <section class="panel" data-panel="lab" aria-labelledby="lab-title">
+      <div class="panel-header">
+        <div>
+          <h2 id="lab-title">插件实验室</h2>
+          <p>执行诊断、surface 列表、reload、tool smoke 和插件私有实验会话动作。</p>
+        </div>
+        <button class="hana-plugin-button hana-plugin-button-secondary hana-plugin-button-md" type="button" data-action="plugin-status">读取状态</button>
+      </div>
+      <div class="action-grid">
+        <label>
+          <span>开发源路径</span>
+          <input class="hana-plugin-input" id="source-path" autocomplete="off" placeholder="F:\\Codex-Workspace\\myhanako">
+        </label>
+        <label>
+          <span>工具名</span>
+          <input class="hana-plugin-input" id="tool-name" autocomplete="off" placeholder="plugin.dev.diagnostics">
+        </label>
+        <button class="hana-plugin-button hana-plugin-button-secondary hana-plugin-button-md" type="button" data-action="list-surfaces">列出界面</button>
+        <button class="hana-plugin-button hana-plugin-button-secondary hana-plugin-button-md" type="button" data-action="reload-plugin">重载插件</button>
+        <button class="hana-plugin-button hana-plugin-button-secondary hana-plugin-button-md" type="button" data-action="invoke-tool">调用工具</button>
+        <button class="hana-plugin-button hana-plugin-button-secondary hana-plugin-button-md" type="button" data-action="create-lab-session">创建实验会话</button>
+      </div>
+      <p class="state-empty">只读动作不需要实验模式；会改变状态或触发执行的动作必须打开实验模式。</p>
+      <pre class="output" data-output="lab"></pre>
+    </section>
+
+    <section class="panel" data-panel="export" aria-labelledby="export-title">
+      <div class="panel-header">
+        <div>
+          <h2 id="export-title">证据导出</h2>
+          <p>导出脱敏 evidence bundle，或把自然语言反馈转成待确认的工作流调整草稿。</p>
+        </div>
+        <button class="hana-plugin-button hana-plugin-button-secondary hana-plugin-button-md" type="button" data-action="export-bundle">导出脱敏包</button>
+      </div>
+      <label>
+        <span>工作流反馈</span>
+        <textarea class="hana-plugin-textarea" id="workflow-feedback" rows="5">执行有破坏性的插件实验动作前，先要求用户确认。</textarea>
+      </label>
+      <div class="action-row">
+        <button class="hana-plugin-button hana-plugin-button-primary hana-plugin-button-md" type="button" data-action="create-draft">生成调整草稿</button>
+      </div>
+      <pre class="output" data-output="export"></pre>
+    </section>
+  </main>
+  <script type="module" src="${escapeHtml(`${assetsBase}/myhanako-app.js`)}"></script>
+</body>
+</html>`
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+}
+
+function escapeScriptJson(value: MyhanakoBootstrap): string {
+  return JSON.stringify(value).replace(/</g, "\\u003c")
+}

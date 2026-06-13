@@ -219,7 +219,7 @@ export type SessionEventPayloadMap = {
 export type SessionEventPayload<TType extends SessionEventType> =
   SessionEventPayloadMap[TType]
 
-export type SessionEvent<TType extends SessionEventType = SessionEventType> = {
+type SessionEventForType<TType extends SessionEventType> = {
   readonly schemaVersion: 1
   readonly id: string
   readonly sessionId: string
@@ -231,6 +231,10 @@ export type SessionEvent<TType extends SessionEventType = SessionEventType> = {
   readonly parentEventId?: string
   readonly payload: SessionEventPayload<TType>
 }
+
+export type SessionEvent<TType extends SessionEventType = SessionEventType> = {
+  readonly [K in TType]: SessionEventForType<K>
+}[TType]
 
 export type AppendSessionEventInput<TType extends SessionEventType = SessionEventType> = {
   readonly sessionId: string

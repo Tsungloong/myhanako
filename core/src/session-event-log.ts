@@ -90,13 +90,13 @@ export class SessionEventLog {
       correlationId: input.correlationId,
       parentEventId: input.parentEventId,
       payload: input.payload
-    } satisfies Omit<SessionEvent<TType>, "id">
+    } as Omit<SessionEvent<TType>, "id">
     const event = {
       ...eventWithoutId,
       id: this.#idFactory(eventWithoutId)
-    } satisfies SessionEvent<TType>
+    } as SessionEvent<TType>
 
-    await this.#store.append(event)
+    await this.#store.append(event as SessionEvent)
     this.#nextSequences.set(input.sessionId, sequence + 1)
     return event
   }

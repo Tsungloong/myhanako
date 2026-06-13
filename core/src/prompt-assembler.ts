@@ -38,6 +38,13 @@ export type RecordPromptBundleEventsInput = {
   readonly correlationId?: string
 }
 
+export type RecordedPromptBundleEvents = readonly [
+  SessionEvent<"prompt_layers_resolved">,
+  SessionEvent<"memory_injected">,
+  SessionEvent<"tools_resolved">,
+  SessionEvent<"model_request_started">
+]
+
 export class PromptAssembler {
   readonly #requestIdFactory: () => string
   readonly #tokenEstimator: (content: string) => number
@@ -74,16 +81,15 @@ export class PromptAssembler {
 
   async recordPromptBundleEvents(
     input: RecordPromptBundleEventsInput
-  ): Promise<readonly SessionEvent[]> {
+  ): Promise<RecordedPromptBundleEvents> {
     const actor = input.actor ?? "system"
     const common = {
       sessionId: input.sessionId,
       actor,
       correlationId: input.correlationId
     }
-    const events: SessionEvent[] = []
 
-    events.push(
+    return [
       await input.log.append({
         ...common,
         type: "prompt_layers_resolved",
@@ -93,9 +99,7 @@ export class PromptAssembler {
           tokenEstimate: input.bundle.tokenEstimate,
           warnings: input.bundle.warnings
         }
-      })
-    )
-    events.push(
+      }),
       await input.log.append({
         ...common,
         type: "memory_injected",
@@ -103,9 +107,7 @@ export class PromptAssembler {
           requestId: input.bundle.requestId,
           memoryIds: input.bundle.injectedMemoryIds
         }
-      })
-    )
-    events.push(
+      }),
       await input.log.append({
         ...common,
         type: "tools_resolved",
@@ -113,9 +115,7 @@ export class PromptAssembler {
           requestId: input.bundle.requestId,
           tools: input.bundle.toolDefinitions
         }
-      })
-    )
-    events.push(
+      }),
       await input.log.append({
         ...common,
         type: "model_request_started",
@@ -125,9 +125,7 @@ export class PromptAssembler {
           modelRole: input.bundle.modelRole
         }
       })
-    )
-
-    return events
+    ]
   }
 
   #resolveLayer(layer: PromptLayerInput): {

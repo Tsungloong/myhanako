@@ -6,10 +6,16 @@
     "strict": true,
     "noEmit": true,
     "allowImportingTsExtensions": true,
+    "types": [
+      "node"
+    ],
     "skipLibCheck": true
   },
   "include": [
     "core/**/*.ts",
-    "shared/**/*.ts"
+    "routes/**/*.ts",
+    "shared/**/*.ts",
+    "src/**/*.ts",
+    "tests/**/*.ts"
   ]
 }

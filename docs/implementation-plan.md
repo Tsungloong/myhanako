@@ -2,6 +2,8 @@
 
 本计划以 [design.md](design.md) 为唯一架构基准。早期报告和未审核讨论只作为历史背景，不进入任务拆解和实现依据。
 
+> 状态更新：本文是 2026-05-27 至 2026-06-01 的 P0 历史实施计划。2026-06-07 起，P1 当前基准已经提升到 [p1-reference.md](p1-reference.md)、[p1-design.md](p1-design.md) 与 [p1-implementation-plan.md](p1-implementation-plan.md)。本文保留用于追溯旧路线中的事件、PromptBundle、可控记忆、Diff、终端和安全边界思想，但不再单独决定 P1 实现方向。
+
 ## 1. 总体原则
 
 - P0 先落地可审计、可恢复、可扩展的原生内核，不急于做完整桌面产品。
